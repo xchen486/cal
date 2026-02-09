@@ -36,7 +36,10 @@ import {
   PenLine,
   Hash,
   CircleDollarSign,
-  Percent
+  Percent,
+  Network,
+  Split,
+  Combine
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -189,9 +192,6 @@ const App: React.FC = () => {
   ]);
 
   const [editingId, setEditingId] = useState<string | null>('step5');
-
-  // ... (rest of the component remains the same)
-  // Re-pasting standard useEffects and handlers to ensure context integrity
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -442,6 +442,13 @@ const App: React.FC = () => {
      if (format === 'percent') return `${(val * 100).toFixed(2)}%`;
      return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
+  
+  // Helper to determine granularity type
+  const getGranularityInfo = (f: any) => {
+      if (!f.groupByField) return { type: 'derived', label: '派生计算', icon: Calculator, color: 'text-blue-500', bg: 'bg-blue-50' };
+      if (f.groupByField === '员工') return { type: 'row', label: '行级粒度 (员工)', icon: Split, color: 'text-indigo-500', bg: 'bg-indigo-50' };
+      return { type: 'broadcast', label: `广播粒度 (${f.groupByField})`, icon: Network, color: 'text-orange-500', bg: 'bg-orange-50' };
+  };
 
   const renderLineageView = () => {
     const nodes: any[] = [];
@@ -690,17 +697,29 @@ const App: React.FC = () => {
     const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
     if (!activeResult || !baseTable || !baseTable.rows) return null;
     const isArrayResult = Array.isArray(activeResult.result);
+    
+    // Get granularity info for current formula
+    const granularity = getGranularityInfo(activeResult);
 
     return (
       <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col">
         {/* Context Information Banner */}
-        <div className="bg-indigo-50/50 border-b border-indigo-100 px-4 py-2 flex items-center gap-2 text-xs text-indigo-900">
-           <TableProperties size={14} className="text-indigo-500"/>
-           <span className="font-bold opacity-70">Result Context:</span>
-           <span>Aligned with <span className="font-bold">{baseTable.name}</span></span>
-           <span className="text-indigo-300 mx-1">|</span>
-           <span className="opacity-70">Primary Key:</span>
-           <span className="font-mono font-bold">{baseTable.fields?.[0] || 'Row ID'}</span>
+        <div className="bg-indigo-50/50 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-xs">
+           <div className="flex items-center gap-2 text-indigo-900">
+             <TableProperties size={14} className="text-indigo-500"/>
+             <span className="font-bold opacity-70">Context Anchor:</span>
+             <span className="font-bold">{baseTable.name}</span>
+             <span className="text-indigo-300 mx-1">|</span>
+             <span className="opacity-70">Granularity:</span>
+             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${granularity.bg} ${granularity.color}`}>{granularity.label}</span>
+           </div>
+           
+           {granularity.type === 'broadcast' && (
+             <div className="flex items-center gap-1.5 text-[10px] text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full font-bold">
+               <Network size={10} />
+               <span>Auto-Broadcasting Active</span>
+             </div>
+           )}
         </div>
 
         <table className="w-full text-left border-collapse text-xs">
@@ -829,8 +848,6 @@ const App: React.FC = () => {
           </div>
       );
   };
-
-  // ... (rest of the component)
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
@@ -1071,13 +1088,22 @@ const App: React.FC = () => {
                <button onClick={() => { const id = Date.now().toString(); setFormulas([...formulas, { id, targetName: '新计算步骤', expression: '', latex: '', result: 0, dependencies: [], format: 'number' }]); setEditingId(id); }} className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-md transition-all"><Plus size={14} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-               {computedFormulas.map((f: any, i) => (
+               {computedFormulas.map((f: any, i) => {
+                  const granularity = getGranularityInfo(f);
+                  return (
                   <div key={f.id} onClick={() => setEditingId(f.id)} className={`p-4 rounded-xl border transition-all cursor-pointer relative ${editingId === f.id ? 'bg-white border-indigo-500 shadow-lg ring-2 ring-indigo-50' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
-                     <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1 block">Step {i+1}</span>
+                     <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">Step {i+1}</span>
+                        {/* Granularity Badge */}
+                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${granularity.bg} border border-transparent`}>
+                            <granularity.icon size={8} className={granularity.color} />
+                            <span className={`text-[8px] font-bold ${granularity.color} uppercase tracking-tighter`}>{granularity.type === 'row' ? 'Row' : 'Agg'}</span>
+                        </div>
+                     </div>
                      <h4 className={`text-sm font-bold truncate ${editingId === f.id ? 'text-indigo-900' : 'text-slate-700'}`}>{f.targetName}</h4>
                      <div className="mt-2 text-[10px] font-mono text-slate-500 bg-slate-50 p-2 rounded truncate border border-slate-100">{f.expression || '未配置逻辑'}</div>
                   </div>
-               ))}
+               )})}
             </div>
             <div className="p-5 border-t border-slate-100 bg-slate-50">
                <button className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
@@ -1089,28 +1115,33 @@ const App: React.FC = () => {
       </main>
       )}
 
-      {hoveredFunc && (
-        <div className="fixed z-[100] w-72 bg-slate-900 text-white p-5 rounded-2xl shadow-2xl border border-slate-700 animate-in fade-in zoom-in-95 pointer-events-none" style={{ top: Math.min(tooltipPos.top, window.innerHeight - 250), left: tooltipPos.left }}>
-           <div className="flex items-center justify-between mb-3">
-              <span className="font-black text-sm text-indigo-400 font-mono">{hoveredFunc.name}</span>
-              <span className="text-[9px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400 font-black uppercase">{hoveredFunc.category}</span>
-           </div>
-           <p className="text-[11px] text-slate-300 mb-5 leading-relaxed font-medium">{hoveredFunc.description}</p>
-           <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">示例</div>
-           <div className="font-mono text-[10px] text-indigo-300 bg-indigo-500/10 px-3 py-2 rounded-lg border border-indigo-500/20">{hoveredFunc.example}</div>
-        </div>
+      {/* Render Template Library Modal */}
+      {isTemplateLibraryOpen && (
+        <TemplateLibrary 
+          onSelect={(template) => {
+             const newId = Date.now().toString();
+             setFormulas(prev => [...prev, {
+                id: newId,
+                targetName: template.name,
+                expression: template.expression,
+                latex: '',
+                result: 0,
+                dependencies: [],
+                format: 'number',
+                explanation: template.description,
+                dataSource: '',
+                groupByField: ''
+             }]);
+             setEditingId(newId);
+             setIsTemplateLibraryOpen(false);
+          }} 
+          onClose={() => setIsTemplateLibraryOpen(false)} 
+        />
       )}
 
-      {isTemplateLibraryOpen && <TemplateLibrary onSelect={(t) => {
-          const id = Date.now().toString();
-          setFormulas([...formulas, { id, targetName: t.name, expression: t.expression, latex: '', result: 0, dependencies: [], format: 'number' }]);
-          setEditingId(id);
-          setIsTemplateLibraryOpen(false);
-      }} onClose={() => setIsTemplateLibraryOpen(false)} />}
-      
+      {/* Render Data Preview Modal */}
       {renderDataPreviewModal()}
-      
-      <style>{`::selection { background: #6366f1; color: white; }`}</style>
+
     </div>
   );
 };
