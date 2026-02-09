@@ -49,15 +49,17 @@ const MOCK_CITIES = [
   { 城市: '成都', 区域: '西南', 国家: '中国' },
 ];
 
+// Added '员工' field to link orders to employees
 const MOCK_ORDERS = [
-  { 订单号: 'O001', 城市: '上海', 金额: 12000, 渠道: '线上' },
-  { 订单号: 'O002', 城市: '上海', 金额: 8000,  渠道: '线下' },
-  { 订单号: 'O003', 城市: '北京', 金额: 35000, 渠道: '线上' },
-  { 订单号: 'O004', 城市: '广州', 金额: 18000, 渠道: '线上' },
-  { 订单号: 'O005', 城市: '深圳', 金额: 22000, 渠道: '线下' },
-  { 订单号: 'O006', 城市: '杭州', 金额: 9000,  渠道: '线上' },
-  { 订单号: 'O007', 城市: '成都', 金额: 45000, 渠道: '线下' },
-  { 订单号: 'O008', 城市: '深圳', 金额: 5000,  渠道: '线上' },
+  { 订单号: 'O001', 城市: '上海', 金额: 12000, 渠道: '线上', 员工: '张三' },
+  { 订单号: 'O002', 城市: '上海', 金额: 8000,  渠道: '线下', 员工: '张三' },
+  { 订单号: 'O003', 城市: '北京', 金额: 35000, 渠道: '线上', 员工: '王五' },
+  { 订单号: 'O004', 城市: '广州', 金额: 18000, 渠道: '线上', 员工: '赵六' },
+  { 订单号: 'O005', 城市: '深圳', 金额: 22000, 渠道: '线下', 员工: '孙七' },
+  { 订单号: 'O006', 城市: '杭州', 金额: 9000,  渠道: '线上', 员工: '周八' },
+  { 订单号: 'O007', 城市: '成都', 金额: 45000, 渠道: '线下', 员工: '吴九' },
+  { 订单号: 'O008', 城市: '深圳', 金额: 5000,  渠道: '线上', 员工: '孙七' },
+  { 订单号: 'O009', 城市: '上海', 金额: 6000,  渠道: '线上', 员工: '李四' },
 ];
 
 const MOCK_SALARIES = [
@@ -86,7 +88,7 @@ const INITIAL_INPUTS: DataVariable[] = [
     type: 'table', 
     value: MOCK_ORDERS.length, 
     rows: MOCK_ORDERS,
-    fields: ['订单号', '城市', '金额', '渠道'],
+    fields: ['订单号', '城市', '金额', '渠道', '员工'],
     dimensionId: '订单'
   },
   { 
@@ -102,16 +104,17 @@ const INITIAL_INPUTS: DataVariable[] = [
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>(ViewState.LOGIC_STUDIO);
+  // Default selected source set to "Employee Salary Table" (id: 3) to show the bonus context
   const [inputs, setInputs] = useState<DataVariable[]>(INITIAL_INPUTS);
   const [previewTab, setPreviewTab] = useState<'result' | 'source'>('result');
   const [functionSearch, setFunctionSearch] = useState('');
   const [dataSourceSearch, setDataSourceSearch] = useState('');
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set(['1', '2', '3']));
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(INITIAL_INPUTS[0].id);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(INITIAL_INPUTS[2].id);
   const [previewTableId, setPreviewTableId] = useState<string | null>(null);
   const [draggedSourceIdx, setDraggedSourceIdx] = useState<number | null>(null);
 
-  const [reportColumns, setReportColumns] = useState<Set<string>>(new Set(['城市', '区域', '总销售额', '平均人力成本', '全国排名']));
+  const [reportColumns, setReportColumns] = useState<Set<string>>(new Set(['员工', '城市', '个人单量', '城市平均单量', '奖金系数']));
   const [isColumnConfigOpen, setIsColumnConfigOpen] = useState(false);
   const [hoveredFunc, setHoveredFunc] = useState<BusinessFunction | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
@@ -126,43 +129,69 @@ const App: React.FC = () => {
   const columnConfigRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Updated formulas to calculate Bonus Coefficient based on City Average
   const [formulas, setFormulas] = useState<(FormulaBlock & { processes?: string[] })[]>([
     {
-      id: 'f1',
-      targetName: '总销售额',
-      expression: 'SUM(金额)',
+      id: 'step1',
+      targetName: '个人单量',
+      expression: 'COUNT(订单号)',
       latex: '',
       result: [],
       dependencies: ['销售订单明细'],
       dataSource: '销售订单明细',
-      groupByField: '城市',
-      format: 'currency'
+      groupByField: '员工', // Group by Employee to get personal count
+      format: 'number'
     },
     {
-      id: 'f2',
-      targetName: '平均人力成本',
-      expression: 'AVG(薪资)',
+      id: 'step2',
+      targetName: '城市总单量',
+      expression: 'COUNT(订单号)',
+      latex: '',
+      result: [],
+      dependencies: ['销售订单明细'],
+      dataSource: '销售订单明细',
+      groupByField: '城市', // Group by City to get total city orders
+      format: 'number'
+    },
+    {
+      id: 'step3',
+      targetName: '城市总人数',
+      expression: 'COUNT(员工)',
       latex: '',
       result: [],
       dependencies: ['员工薪资表'],
       dataSource: '员工薪资表',
-      groupByField: '城市',
-      format: 'currency'
+      groupByField: '城市', // Count how many employees in that city
+      format: 'number'
     },
     {
-      id: 'f3',
-      targetName: '全国排名',
-      expression: 'RANK(总销售额, BY=国家)',
+      id: 'step4',
+      targetName: '城市平均单量',
+      expression: '城市总单量 / 城市总人数',
       latex: '',
       result: [],
-      dependencies: ['总销售额'],
-      dataSource: '城市基础档案',
-      groupByField: '城市',
+      dependencies: ['城市总单量', '城市总人数'],
+      dataSource: '', // Pure math calculation
+      groupByField: '',
       format: 'number'
+    },
+    {
+      id: 'step5',
+      targetName: '奖金系数',
+      expression: '个人单量 / 城市平均单量',
+      latex: '',
+      result: [],
+      dependencies: ['个人单量', '城市平均单量'],
+      dataSource: '',
+      groupByField: '',
+      format: 'percent'
     }
   ]);
 
-  const [editingId, setEditingId] = useState<string | null>('f1');
+  const [editingId, setEditingId] = useState<string | null>('step5');
+
+  // ... (rest of the component remains the same)
+  // Re-pasting standard useEffects and handlers to ensure context integrity
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -257,9 +286,15 @@ const App: React.FC = () => {
       }
   }, [dataSourceSearch, filteredInputs]);
 
+  // --- Main Calculation Logic ---
+  // Note: Since we are using Employee Salary Table as base (id=3), the baseTable.rows are employees.
+  // The parser logic will try to match rows in other tables (Orders) based on the groupByField.
+  // E.g., if groupByField is '城市', it matches Order.城市 with Salary.城市.
   const computedFormulas = useMemo(() => {
     const resultsMap = new Map<string, any>();
-    const baseTable = inputs[0]; 
+    // We explicitly use the Salary table (inputs[2]) as the base context for this scenario
+    // to ensure we iterate over employees.
+    const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
     if (!baseTable || !baseTable.rows) return [];
 
     return formulas.map(f => {
@@ -269,6 +304,7 @@ const App: React.FC = () => {
       
       const rankMatch = f.expression.match(/RANK\((.*?), BY=(.*?)\)/i);
       if (rankMatch) {
+         // ... (Keep existing RANK logic)
          const targetField = rankMatch[1].trim();
          const byField = rankMatch[2].trim();
          let values = resultsMap.get(targetField);
@@ -305,17 +341,29 @@ const App: React.FC = () => {
         const sourceTable = inputs.find(i => i.name === f.dataSource);
         if (sourceTable && sourceTable.rows) {
           const keyField = baseTable.fields?.[0] || 'id';
-          const sortedIds = baseTable.rows.map(r => r[keyField]);
+          // Iterate over the BASE table rows (Employees)
+          const sortedIds = baseTable.rows.map(r => r[keyField]); // e.g., Employee Name or ID
           
           finalResult = sortedIds.map((entityId, idx) => {
-            const context: Record<string, any> = {}; 
-            const sourceRows = sourceTable.rows?.filter(r => r[f.groupByField!] === entityId) || [];
+            // Context Row: The current employee row from the base table
+            const contextRow = baseTable.rows![idx];
+            // Value to match: The value of the GroupBy field in the CURRENT base row
+            // e.g. if groupByField is '城市', we get 'Shanghai' from the employee row.
+            // e.g. if groupByField is '员工', we get 'Zhang San' from the employee row.
+            const matchValue = contextRow[f.groupByField!];
+
+            // Filter source rows (e.g. Orders) where Order[groupByField] === Employee[groupByField]
+            const sourceRows = sourceTable.rows?.filter(r => r[f.groupByField!] === matchValue) || [];
 
             const sumMatch = f.expression.match(/SUM\((.*?)\)/i);
+            const countMatch = f.expression.match(/COUNT\((.*?)\)/i); // Added simple COUNT support
+
             if (sumMatch) {
               const fieldName = sumMatch[1].trim();
               const total = sourceRows.reduce((s, r) => s + (parseFloat(r[fieldName]) || 0), 0);
-              context[`SUM(${fieldName})`] = total;
+              return total;
+            } else if (countMatch) {
+               return sourceRows.length;
             }
 
             const avgMatch = f.expression.match(/AVG\((.*?)\)/i);
@@ -323,33 +371,53 @@ const App: React.FC = () => {
               const fieldName = avgMatch[1].trim();
               const total = sourceRows.reduce((s, r) => s + (parseFloat(r[fieldName]) || 0), 0);
               const count = sourceRows.length || 1;
-              context[`AVG(${fieldName})`] = total / count;
+              return total / count;
             }
-
+            
+            return 0;
+          });
+          
+          // Generate simpler traces for this scenario
+          processes = finalResult.map((val: any, idx: number) => {
+              const contextRow = baseTable.rows![idx];
+              const key = contextRow[f.groupByField!];
+              return `${f.groupByField}=${key} → Found ${val}`;
+          });
+        }
+      } else {
+        // Handle Pure Math Calculations (e.g. A / B)
+        const sortedIds = baseTable.rows.map((_, i) => i);
+        finalResult = sortedIds.map((_, idx) => {
+            let exprToEval = f.expression;
+            let traceExpr = f.expression;
+            
+            // Replace variables with their values for this row
             resultsMap.forEach((val, key) => {
-              context[key] = Array.isArray(val) ? (val[idx] || 0) : (val || 0);
+               const v = Array.isArray(val) ? val[idx] : val;
+               // Simple replacement (be careful with substrings)
+               exprToEval = exprToEval.split(key).join(v);
+               
+               let displayV = v;
+               if (typeof v === 'number') displayV = parseFloat(v.toFixed(2));
+               traceExpr = traceExpr.split(key).join(`<span class="font-bold text-indigo-600">${displayV}</span>`);
             });
 
             try {
-              let exprToEval = f.expression;
-              let traceExpr = f.expression;
-              if (sumMatch) {
-                const sVal = context[`SUM(${sumMatch[1].trim()})`];
-                exprToEval = exprToEval.replace(sumMatch[0] as string, sVal.toString());
-                traceExpr = traceExpr.replace(sumMatch[0] as string, `<span class="text-indigo-600 font-black">${sVal.toLocaleString()}</span>`);
-              }
-              if (avgMatch) {
-                const aVal = context[`AVG(${avgMatch[1].trim()})`];
-                exprToEval = exprToEval.replace(avgMatch[0] as string, aVal.toString());
-                traceExpr = traceExpr.replace(avgMatch[0] as string, `<span class="text-green-600 font-black">${aVal.toFixed(0)}</span>`);
-              }
-              processes.push(traceExpr);
-              exprToEval = exprToEval.replace(/==/g, '===').replace(/([^=<>!])=([^=])/g, '$1===$2');
-              return eval(exprToEval) || 0;
-            } catch (err) { return 0; }
-          });
-        }
+                return eval(exprToEval) || 0;
+            } catch (e) { return 0; }
+        });
+        processes = sortedIds.map((_, idx) => {
+             let traceExpr = f.expression;
+             resultsMap.forEach((val, key) => {
+               const v = Array.isArray(val) ? val[idx] : val;
+               let displayV = v;
+               if (typeof v === 'number') displayV = parseFloat(v.toFixed(2));
+               traceExpr = traceExpr.split(key).join(`<span class="font-bold text-indigo-600">${displayV}</span>`);
+            });
+            return traceExpr;
+        });
       }
+
       resultsMap.set(f.targetName, finalResult);
       return { ...f, result: finalResult, dependencies: currentDeps, processes };
     });
@@ -475,6 +543,7 @@ const App: React.FC = () => {
   };
 
   const renderDataSourcesView = () => {
+    // ... (Keep existing implementation)
     const activeSource = inputs.find(i => i.id === selectedSourceId) || inputs[0];
     return (
       <div className="flex-1 flex bg-slate-50 overflow-hidden">
@@ -553,7 +622,8 @@ const App: React.FC = () => {
   };
 
   const renderReportsView = () => {
-     const baseTable = inputs[0]; 
+    // Ensure we use the Salary Table (which has employees) as the primary driving dimension
+    const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
      const availableColumns = [
         ...(baseTable?.fields || []).map(f => ({ name: f, type: 'source', dimension: baseTable?.dimensionId })),
         ...computedFormulas.filter((f: any) => Array.isArray(f.result)).map((f: any) => ({ 
@@ -616,7 +686,8 @@ const App: React.FC = () => {
 
   const renderCalculationResult = () => {
     const activeResult = computedFormulas.find(f => f.id === editingId);
-    const baseTable = inputs[0];
+    // Use Salary Table as context base
+    const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
     if (!activeResult || !baseTable || !baseTable.rows) return null;
     const isArrayResult = Array.isArray(activeResult.result);
 
@@ -661,70 +732,105 @@ const App: React.FC = () => {
   };
 
   const renderSourceTablePreview = () => {
-    if (!activeFormula?.dataSource) return <div className="text-center py-20 text-slate-400 text-xs italic">请在上方选择核算上下文数据源</div>;
-    const sourceTable = inputs.find(i => i.name === activeFormula.dataSource);
-    if (!sourceTable || !sourceTable.rows) return null;
+    const activeResult = computedFormulas.find(f => f.id === editingId);
+    if (!activeResult || !activeResult.dataSource) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-slate-400">
+           <Database size={48} className="mb-4 opacity-20" />
+           <p className="text-xs font-bold">未关联数据源</p>
+           <p className="text-[10px] mt-1">请在上方选择一个数据表作为计算上下文</p>
+        </div>
+      );
+    }
+
+    const sourceTable = inputs.find(i => i.name === activeResult.dataSource);
+    if (!sourceTable) return <div className="p-6 text-center text-slate-400 text-xs">找不到数据源: {activeResult.dataSource}</div>;
 
     return (
-      <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm">
-        <table className="w-full text-left border-collapse text-[10px]">
-          <thead className="bg-slate-50/80 border-b border-slate-200 font-bold text-slate-400 uppercase tracking-tighter">
-            <tr>{sourceTable.fields?.map(f => (<th key={f} className="px-3 py-2 border-r border-slate-100">{f}</th>))}</tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sourceTable.rows.slice(0, 10).map((row, idx) => (
-              <tr key={idx}>{sourceTable.fields?.map(f => (<td key={f} className="px-3 py-2 text-slate-600 border-r border-slate-100/50">{row[f]}</td>))}</tr>
-            ))}
-          </tbody>
-        </table>
-        {sourceTable.rows.length > 10 && <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 text-center text-[9px] text-slate-400 font-bold">显示前 10 条，总计 {sourceTable.rows.length} 条</div>}
+      <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col h-full">
+         <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+               <TableProperties size={14} className="text-slate-400" />
+               <span className="text-xs font-bold text-slate-700">{sourceTable.name}</span>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400">{sourceTable.rows?.length} rows</span>
+         </div>
+         <div className="flex-1 overflow-auto">
+            <table className="w-full text-left border-collapse text-xs">
+               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 sticky top-0 z-10">
+                  <tr>
+                     {sourceTable.fields?.map(f => (
+                        <th key={f} className="px-4 py-2 font-medium whitespace-nowrap bg-slate-50">{f}</th>
+                     ))}
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-100">
+                  {sourceTable.rows?.slice(0, 100).map((row, i) => (
+                     <tr key={i} className="hover:bg-slate-50">
+                        {sourceTable.fields?.map(f => (
+                           <td key={f} className="px-4 py-2 text-slate-600 whitespace-nowrap">{row[f]}</td>
+                        ))}
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
       </div>
     );
   };
 
-  // Render Data Preview Modal
   const renderDataPreviewModal = () => {
       if (!previewTableId) return null;
       const table = inputs.find(i => i.id === previewTableId);
-      if (!table || !table.rows) return null;
+      if (!table) return null;
 
       return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-white w-[80%] h-[80%] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-12">
+              <div className="bg-white rounded-2xl shadow-2xl w-full h-full max-w-5xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                       <div className="flex items-center gap-3">
-                          <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><TableProperties size={20} /></div>
+                          <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                              <TableProperties size={20} />
+                          </div>
                           <div>
-                              <h2 className="text-lg font-bold text-slate-800">{table.name}</h2>
-                              <p className="text-xs text-slate-500 font-medium">预览前 100 条数据 • 共 {table.rows.length} 条</p>
+                              <h3 className="text-sm font-bold text-slate-800">{table.name}</h3>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{table.rows?.length} Records • {table.fields?.length} Fields</p>
                           </div>
                       </div>
-                      <button onClick={() => setPreviewTableId(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={20} className="text-slate-500" /></button>
+                      <button onClick={() => setPreviewTableId(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all">
+                          <X size={20} />
+                      </button>
                   </div>
-                  <div className="flex-1 overflow-auto p-6">
-                      <table className="w-full text-left border-collapse text-xs">
-                          <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
-                              <tr>
-                                  {table.fields?.map(f => (
-                                      <th key={f} className="px-4 py-3 font-bold text-slate-600 border-b border-slate-200">{f}</th>
-                                  ))}
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                              {table.rows.slice(0, 100).map((row, idx) => (
-                                  <tr key={idx} className="hover:bg-indigo-50/50 transition-colors">
+                  <div className="flex-1 overflow-auto p-6 bg-slate-50/30">
+                      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                          <table className="w-full text-left border-collapse text-xs">
+                              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                                  <tr>
+                                      <th className="px-4 py-3 font-bold text-slate-400 w-16 text-center bg-slate-50">#</th>
                                       {table.fields?.map(f => (
-                                          <td key={f} className="px-4 py-3 text-slate-700 border-r border-slate-50">{row[f]}</td>
+                                          <th key={f} className="px-6 py-3 font-bold text-slate-600 whitespace-nowrap bg-slate-50">{f}</th>
                                       ))}
                                   </tr>
-                              ))}
-                          </tbody>
-                      </table>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                  {table.rows?.map((row, idx) => (
+                                      <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
+                                          <td className="px-4 py-3 text-center font-mono text-slate-300 text-[10px]">{idx + 1}</td>
+                                          {table.fields?.map(f => (
+                                              <td key={f} className="px-6 py-3 text-slate-700 whitespace-nowrap max-w-[200px] truncate" title={String(row[f])}>{row[f]}</td>
+                                          ))}
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
                   </div>
               </div>
           </div>
       );
   };
+
+  // ... (rest of the component)
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
