@@ -39,7 +39,8 @@ import {
   Percent,
   Network,
   Split,
-  Combine
+  Combine,
+  Bot
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -107,7 +108,6 @@ const INITIAL_INPUTS: DataVariable[] = [
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>(ViewState.LOGIC_STUDIO);
-  // Default selected source set to "Employee Salary Table" (id: 3) to show the bonus context
   const [inputs, setInputs] = useState<DataVariable[]>(INITIAL_INPUTS);
   const [previewTab, setPreviewTab] = useState<'result' | 'source'>('result');
   const [functionSearch, setFunctionSearch] = useState('');
@@ -125,6 +125,7 @@ const App: React.FC = () => {
   const [isDragOverEditor, setIsDragOverEditor] = useState(false);
   const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
   const [isDimensionMenuOpen, setIsDimensionMenuOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const dimensionMenuRef = useRef<HTMLDivElement>(null);
@@ -132,7 +133,6 @@ const App: React.FC = () => {
   const columnConfigRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Updated formulas to calculate Bonus Coefficient based on City Average
   const [formulas, setFormulas] = useState<(FormulaBlock & { processes?: string[] })[]>([
     {
       id: 'step1',
@@ -142,7 +142,7 @@ const App: React.FC = () => {
       result: [],
       dependencies: ['销售订单明细'],
       dataSource: '销售订单明细',
-      groupByField: '员工', // Group by Employee to get personal count
+      groupByField: '员工',
       format: 'number'
     },
     {
@@ -153,7 +153,7 @@ const App: React.FC = () => {
       result: [],
       dependencies: ['销售订单明细'],
       dataSource: '销售订单明细',
-      groupByField: '城市', // Group by City to get total city orders
+      groupByField: '城市',
       format: 'number'
     },
     {
@@ -164,7 +164,7 @@ const App: React.FC = () => {
       result: [],
       dependencies: ['员工薪资表'],
       dataSource: '员工薪资表',
-      groupByField: '城市', // Count how many employees in that city
+      groupByField: '城市',
       format: 'number'
     },
     {
@@ -174,7 +174,7 @@ const App: React.FC = () => {
       latex: '',
       result: [],
       dependencies: ['城市总单量', '城市总人数'],
-      dataSource: '', // Pure math calculation
+      dataSource: '', 
       groupByField: '',
       format: 'number'
     },
@@ -246,12 +246,24 @@ const App: React.FC = () => {
         setInputs(prev => [...prev, newTable]);
         setSelectedSourceId(newTable.id);
         
-        // Reset input value to allow uploading the same file again if needed
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
     } catch (error) {
       console.error("Failed to parse Excel file", error);
       alert("文件解析失败，请确保上传的是有效的 Excel 文件");
+    }
+  };
+
+  const handleExplainFormula = async () => {
+    if (!activeFormula || !activeFormula.expression) return;
+    setIsAnalyzing(true);
+    try {
+        const result = await FormulaParser.explainFormula(activeFormula.expression, inputs);
+        setFormulas(prev => prev.map(f => f.id === editingId ? { ...f, ...result } : f));
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsAnalyzing(false);
     }
   };
 
@@ -278,7 +290,6 @@ const App: React.FC = () => {
       );
   }, [inputs, dataSourceSearch]);
 
-  // Auto-expand tables when searching
   useEffect(() => {
       if (dataSourceSearch) {
           const idsToExpand = filteredInputs.map(i => i.id);
@@ -287,13 +298,8 @@ const App: React.FC = () => {
   }, [dataSourceSearch, filteredInputs]);
 
   // --- Main Calculation Logic ---
-  // Note: Since we are using Employee Salary Table as base (id=3), the baseTable.rows are employees.
-  // The parser logic will try to match rows in other tables (Orders) based on the groupByField.
-  // E.g., if groupByField is '城市', it matches Order.城市 with Salary.城市.
   const computedFormulas = useMemo(() => {
     const resultsMap = new Map<string, any>();
-    // We explicitly use the Salary table (inputs[2]) as the base context for this scenario
-    // to ensure we iterate over employees.
     const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
     if (!baseTable || !baseTable.rows) return [];
 
@@ -304,7 +310,6 @@ const App: React.FC = () => {
       
       const rankMatch = f.expression.match(/RANK\((.*?), BY=(.*?)\)/i);
       if (rankMatch) {
-         // ... (Keep existing RANK logic)
          const targetField = rankMatch[1].trim();
          const byField = rankMatch[2].trim();
          let values = resultsMap.get(targetField);
@@ -341,22 +346,14 @@ const App: React.FC = () => {
         const sourceTable = inputs.find(i => i.name === f.dataSource);
         if (sourceTable && sourceTable.rows) {
           const keyField = baseTable.fields?.[0] || 'id';
-          // Iterate over the BASE table rows (Employees)
-          const sortedIds = baseTable.rows.map(r => r[keyField]); // e.g., Employee Name or ID
+          const sortedIds = baseTable.rows.map(r => r[keyField]); 
           
           finalResult = sortedIds.map((entityId, idx) => {
-            // Context Row: The current employee row from the base table
             const contextRow = baseTable.rows![idx];
-            // Value to match: The value of the GroupBy field in the CURRENT base row
-            // e.g. if groupByField is '城市', we get 'Shanghai' from the employee row.
-            // e.g. if groupByField is '员工', we get 'Zhang San' from the employee row.
             const matchValue = contextRow[f.groupByField!];
-
-            // Filter source rows (e.g. Orders) where Order[groupByField] === Employee[groupByField]
             const sourceRows = sourceTable.rows?.filter(r => r[f.groupByField!] === matchValue) || [];
-
             const sumMatch = f.expression.match(/SUM\((.*?)\)/i);
-            const countMatch = f.expression.match(/COUNT\((.*?)\)/i); // Added simple COUNT support
+            const countMatch = f.expression.match(/COUNT\((.*?)\)/i);
 
             if (sumMatch) {
               const fieldName = sumMatch[1].trim();
@@ -377,7 +374,6 @@ const App: React.FC = () => {
             return 0;
           });
           
-          // Generate simpler traces for this scenario
           processes = finalResult.map((val: any, idx: number) => {
               const contextRow = baseTable.rows![idx];
               const key = contextRow[f.groupByField!];
@@ -385,18 +381,13 @@ const App: React.FC = () => {
           });
         }
       } else {
-        // Handle Pure Math Calculations (e.g. A / B)
         const sortedIds = baseTable.rows.map((_, i) => i);
         finalResult = sortedIds.map((_, idx) => {
             let exprToEval = f.expression;
             let traceExpr = f.expression;
-            
-            // Replace variables with their values for this row
             resultsMap.forEach((val, key) => {
                const v = Array.isArray(val) ? val[idx] : val;
-               // Simple replacement (be careful with substrings)
                exprToEval = exprToEval.split(key).join(v);
-               
                let displayV = v;
                if (typeof v === 'number') displayV = parseFloat(v.toFixed(2));
                traceExpr = traceExpr.split(key).join(`<span class="font-bold text-indigo-600">${displayV}</span>`);
@@ -443,7 +434,6 @@ const App: React.FC = () => {
      return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
   
-  // Helper to determine granularity type
   const getGranularityInfo = (f: any) => {
       if (!f.groupByField) return { type: 'derived', label: '派生计算', icon: Calculator, color: 'text-blue-500', bg: 'bg-blue-50' };
       if (f.groupByField === '员工') return { type: 'row', label: '行级粒度 (员工)', icon: Split, color: 'text-indigo-500', bg: 'bg-indigo-50' };
@@ -550,11 +540,9 @@ const App: React.FC = () => {
   };
 
   const renderDataSourcesView = () => {
-    // ... (Keep existing implementation)
     const activeSource = inputs.find(i => i.id === selectedSourceId) || inputs[0];
     return (
       <div className="flex-1 flex bg-slate-50 overflow-hidden">
-        {/* Table List Sidebar */}
         <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">数据资产中心</h2>
@@ -589,7 +577,6 @@ const App: React.FC = () => {
             ))}
           </div>
         </div>
-        {/* Data Preview Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <header className="h-[64px] bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
              <div className="flex items-center gap-4">
@@ -629,7 +616,6 @@ const App: React.FC = () => {
   };
 
   const renderReportsView = () => {
-    // Ensure we use the Salary Table (which has employees) as the primary driving dimension
     const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
      const availableColumns = [
         ...(baseTable?.fields || []).map(f => ({ name: f, type: 'source', dimension: baseTable?.dimensionId })),
@@ -693,17 +679,14 @@ const App: React.FC = () => {
 
   const renderCalculationResult = () => {
     const activeResult = computedFormulas.find(f => f.id === editingId);
-    // Use Salary Table as context base
     const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
     if (!activeResult || !baseTable || !baseTable.rows) return null;
     const isArrayResult = Array.isArray(activeResult.result);
     
-    // Get granularity info for current formula
     const granularity = getGranularityInfo(activeResult);
 
     return (
       <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col">
-        {/* Context Information Banner */}
         <div className="bg-indigo-50/50 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-xs">
            <div className="flex items-center gap-2 text-indigo-900">
              <TableProperties size={14} className="text-indigo-500"/>
@@ -1068,6 +1051,37 @@ const App: React.FC = () => {
                         <textarea ref={editorRef} value={activeFormula?.expression || ''} onChange={(e) => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, expression: e.target.value} : f))} className="w-full text-2xl font-mono text-slate-700 text-center bg-transparent border-none focus:ring-0 resize-none placeholder:text-slate-200 leading-relaxed" placeholder="拖入字段定义计算规则" />
                         <div className="w-full flex items-center gap-4 my-6"><div className="h-px bg-slate-100 flex-1"></div><span className="text-[9px] text-slate-300 font-black uppercase tracking-widest">Mathematical Formula</span><div className="h-px bg-slate-100 flex-1"></div></div>
                         <FormulaRenderer latex={activeFormula?.latex || ''} scale={1.2} />
+
+                        {/* New Analysis Section */}
+                        <div className="w-full mt-6">
+                            <div className="flex items-center justify-between mb-2">
+                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logic Analysis</h4>
+                               <button onClick={handleExplainFormula} disabled={isAnalyzing} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                                  {isAnalyzing ? 'Analyzing...' : <><Bot size={12}/> AI Explanation</>}
+                               </button>
+                            </div>
+                            {(activeFormula?.purpose || activeFormula?.expectedOutput) && (
+                                <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 text-xs space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    {activeFormula.purpose && (
+                                        <div className="flex gap-2">
+                                            <span className="font-bold text-indigo-900 min-w-[60px]">Purpose:</span>
+                                            <span className="text-slate-700">{activeFormula.purpose}</span>
+                                        </div>
+                                    )}
+                                    {activeFormula.expectedOutput && (
+                                        <div className="flex gap-2">
+                                             <span className="font-bold text-indigo-900 min-w-[60px]">Output:</span>
+                                             <span className="text-slate-700">{activeFormula.expectedOutput}</span>
+                                        </div>
+                                    )}
+                                    {activeFormula.explanation && (
+                                        <div className="mt-2 pt-2 border-t border-indigo-100 text-slate-600 leading-relaxed">
+                                            {activeFormula.explanation}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                      </div>
                   </div>
                </div>

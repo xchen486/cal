@@ -26,6 +26,8 @@ export interface FormulaBlock {
   result: any;
   dependencies: string[];
   explanation?: string;
+  purpose?: string;
+  expectedOutput?: string;
   dataSource?: string; // e.g., "销售订单明细"
   groupByField?: string; // e.g., "员工编号"
   format?: 'number' | 'currency' | 'percent';
