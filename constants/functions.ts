@@ -5,7 +5,7 @@ export interface BusinessFunction {
   syntax: string;
   description: string;
   example: string;
-  category: '基础' | '聚合' | '逻辑';
+  category: '基础' | '聚合' | '逻辑' | '关联';
 }
 
 export const BUSINESS_FUNCTIONS: BusinessFunction[] = [
@@ -34,20 +34,20 @@ export const BUSINESS_FUNCTIONS: BusinessFunction[] = [
     category: '基础'
   },
   {
-    name: 'SUM_BY',
+    name: 'SUM_GROUP',
     displayName: '分组求和',
-    syntax: 'SUM_BY(field, BY=dimension)',
-    description: 'Calculates the sum of a field, grouped by a specified dimension.',
-    example: 'SUM_BY(金额, BY=员工编号)',
+    syntax: 'SUM_GROUP(指标, BY=维度)',
+    description: '按指定维度分组求和，并将结果广播回每一行（窗口函数模式）。',
+    example: 'SUM_GROUP(本单分成, BY=员工)',
     category: '聚合'
   },
   {
-    name: 'DOMINANT_KEY',
-    displayName: '主导维度提取',
-    syntax: 'DOMINANT_KEY(目标维度, WEIGHT=权重字段)',
-    description: '在明细数据中，找出权重占比最高的那个维度值。若权重设为 COUNT，则找出出现次数最多的维度值。',
-    example: 'DOMINANT_KEY(城市, WEIGHT=金额)',
-    category: '聚合'
+    name: 'LOOKUP',
+    displayName: '跨表引用',
+    syntax: 'LOOKUP(表名, 字段名)',
+    description: '根据自动检测的关联键（如城市、ID），从另一张表中匹配并引用数据。',
+    example: 'LOOKUP(城市基础档案, 保险系数)',
+    category: '关联'
   },
   {
     name: 'RANK',

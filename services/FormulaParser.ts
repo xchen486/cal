@@ -58,6 +58,14 @@ export class FormulaParser {
     }
   }
 
+  static getLatex(expression: string): string {
+    if (!expression) return '';
+    return expression
+      .replace(/\*/g, '\\times')
+      .replace(/\//g, '\\div')
+      .replace(/([a-zA-Z_\u4e00-\u9fa5]\w*)/g, (m) => `\\text{${m}}`);
+  }
+
   static evaluate(
     expression: string,
     context: DataVariable[]
@@ -137,13 +145,11 @@ export class FormulaParser {
           result = ctxMap.get(expression.trim()) || 0;
       }
     } catch (e) {
-      console.error("Eval error", e);
+      // Suppress eval errors (expected when variables are missing in context)
+      // console.error("Eval error", e);
     }
 
-    let latex = expression
-      .replace(/\*/g, '\\times')
-      .replace(/\//g, '\\div')
-      .replace(/([a-zA-Z_\u4e00-\u9fa5]\w*)/g, (m) => `\\text{${m}}`);
+    let latex = this.getLatex(expression);
 
     return { result, dependencies, latex };
   }

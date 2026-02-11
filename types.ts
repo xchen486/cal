@@ -28,9 +28,11 @@ export interface FormulaBlock {
   explanation?: string;
   purpose?: string;
   expectedOutput?: string;
-  dataSource?: string; // e.g., "销售订单明细"
-  groupByField?: string; // e.g., "员工编号"
+  dataSource?: string; 
+  groupByField?: string; 
   format?: 'number' | 'currency' | 'percent';
+  // New field to track the granularity of this step (e.g., 'Row', 'Employee', 'City')
+  outputDimension?: string; 
 }
 
 export enum ViewState {

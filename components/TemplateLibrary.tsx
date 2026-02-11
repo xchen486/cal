@@ -60,7 +60,7 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({ onSelect, onCl
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{cat} Calculations</h3>
                 <div className="grid gap-4">
                   {items.map(template => {
-                    const { latex } = FormulaParser.evaluate(template.expression, []);
+                    const latex = FormulaParser.getLatex(template.expression);
                     return (
                       <div 
                         key={template.id}

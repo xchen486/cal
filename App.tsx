@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ViewState, DataVariable, FormulaBlock } from './types.ts';
 import { FormulaParser } from './services/FormulaParser.ts';
-import { FormulaRenderer } from './components/FormulaRenderer.tsx';
 import { TemplateLibrary } from './components/TemplateLibrary.tsx';
-import { FormulaTemplate } from './constants/templates.ts';
 import { BUSINESS_FUNCTIONS, BusinessFunction } from './constants/functions.ts';
 import * as XLSX from 'xlsx';
 import { 
@@ -16,64 +14,55 @@ import {
   ChevronDown,
   ChevronRight,
   Calculator,
-  Layers,
-  Cpu,
   BookOpen,
-  GripVertical,
-  ArrowRight,
-  Sparkles,
-  TableProperties,
-  GitGraph,
-  Search,
-  FunctionSquare,
-  X,
-  Link2,
-  Layout,
-  Download,
   Upload,
   Eye,
-  GripHorizontal,
-  PenLine,
-  Hash,
-  CircleDollarSign,
-  Percent,
+  Search,
+  FunctionSquare,
+  Link2,
   Network,
   Split,
-  Combine,
-  Bot
+  Bot,
+  Users,
+  FileText,
+  Table,
+  Layers,
+  LayoutGrid,
+  X,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
+  Table2,
+  MousePointerClick
 } from 'lucide-react';
 
-// --- MOCK DATA ---
+// --- MOCK DATA (INSURANCE SCENARIO) ---
 const MOCK_CITIES = [
-  { 城市: '上海', 区域: '华东', 国家: '中国' },
-  { 城市: '北京', 区域: '华北', 国家: '中国' },
-  { 城市: '广州', 区域: '华南', 国家: '中国' },
-  { 城市: '深圳', 区域: '华南', 国家: '中国' },
-  { 城市: '杭州', 区域: '华东', 国家: '中国' },
-  { 城市: '成都', 区域: '西南', 国家: '中国' },
+  { 城市: '上海', 区域: '华东', 保险系数: 1.5 },
+  { 城市: '北京', 区域: '华北', 保险系数: 1.4 },
+  { 城市: '广州', 区域: '华南', 保险系数: 1.2 },
+  { 城市: '深圳', 区域: '华南', 保险系数: 1.3 },
+  { 城市: '杭州', 区域: '华东', 保险系数: 1.1 },
+  { 城市: '成都', 区域: '西南', 保险系数: 1.0 },
 ];
 
-// Added '员工' field to link orders to employees
 const MOCK_ORDERS = [
-  { 订单号: 'O001', 城市: '上海', 金额: 12000, 渠道: '线上', 员工: '张三' },
-  { 订单号: 'O002', 城市: '上海', 金额: 8000,  渠道: '线下', 员工: '张三' },
-  { 订单号: 'O003', 城市: '北京', 金额: 35000, 渠道: '线上', 员工: '王五' },
-  { 订单号: 'O004', 城市: '广州', 金额: 18000, 渠道: '线上', 员工: '赵六' },
-  { 订单号: 'O005', 城市: '深圳', 金额: 22000, 渠道: '线下', 员工: '孙七' },
-  { 订单号: 'O006', 城市: '杭州', 金额: 9000,  渠道: '线上', 员工: '周八' },
-  { 订单号: 'O007', 城市: '成都', 金额: 45000, 渠道: '线下', 员工: '吴九' },
-  { 订单号: 'O008', 城市: '深圳', 金额: 5000,  渠道: '线上', 员工: '孙七' },
-  { 订单号: 'O009', 城市: '上海', 金额: 6000,  渠道: '线上', 员工: '李四' },
+  { 订单号: 'P001', 城市: '上海', 保费: 20000, 险种: '人寿险', 员工: '张三' },
+  { 订单号: 'P002', 城市: '上海', 保费: 10000, 险种: '意外险', 员工: '张三' },
+  { 订单号: 'P003', 城市: '杭州', 保费: 50000, 险种: '财产险', 员工: '张三' }, 
+  { 订单号: 'P004', 城市: '北京', 保费: 35000, 险种: '人寿险', 员工: '王五' },
+  { 订单号: 'P005', 城市: '广州', 保费: 18000, 险种: '意外险', 员工: '赵六' },
+  { 订单号: 'P006', 城市: '深圳', 保费: 22000, 险种: '人寿险', 员工: '孙七' },
+  { 订单号: 'P007', 城市: '深圳', 保费: 8000,  险种: '意外险', 员工: '孙七' },
+  { 订单号: 'P008', 城市: '成都', 保费: 12000, 险种: '财产险', 员工: '吴九' },
 ];
 
 const MOCK_SALARIES = [
-  { 员工: '张三', 城市: '上海', 薪资: 18000, 部门: '销售部' },
-  { 员工: '李四', 城市: '上海', 薪资: 16000, 部门: '销售部' },
-  { 员工: '王五', 城市: '北京', 薪资: 22000, 部门: '运营部' },
-  { 员工: '赵六', 城市: '广州', 薪资: 15000, 部门: '市场部' },
-  { 员工: '孙七', 城市: '深圳', 薪资: 19000, 部门: '销售部' },
-  { 员工: '周八', 城市: '杭州', 薪资: 17000, 部门: '财务部' },
-  { 员工: '吴九', 城市: '成都', 薪资: 14000, 部门: '销售部' },
+  { 员工: '张三', 职级: 'P6', 部门: '销售一部', 基本薪资: 8000 },
+  { 员工: '王五', 职级: 'P5', 部门: '销售二部', 基本薪资: 6500 },
+  { 员工: '赵六', 职级: 'P5', 部门: '销售一部', 基本薪资: 7000 },
+  { 员工: '孙七', 职级: 'P6', 部门: '销售三部', 基本薪资: 8500 },
+  { 员工: '吴九', 职级: 'P4', 部门: '销售二部', 基本薪资: 5000 },
 ];
 
 const INITIAL_INPUTS: DataVariable[] = [
@@ -83,25 +72,25 @@ const INITIAL_INPUTS: DataVariable[] = [
     type: 'table', 
     value: MOCK_CITIES.length, 
     rows: MOCK_CITIES,
-    fields: ['城市', '区域', '国家'],
+    fields: ['城市', '区域', '保险系数'],
     dimensionId: '城市' 
   },
   { 
     id: '2', 
-    name: '销售订单明细', 
+    name: '保险销售明细', 
     type: 'table', 
     value: MOCK_ORDERS.length, 
     rows: MOCK_ORDERS,
-    fields: ['订单号', '城市', '金额', '渠道', '员工'],
-    dimensionId: '订单'
+    fields: ['订单号', '城市', '保费', '险种', '员工'],
+    dimensionId: 'Row' // Represents granularity
   },
   { 
     id: '3', 
-    name: '员工薪资表', 
+    name: '员工花名册', 
     type: 'table', 
     value: MOCK_SALARIES.length, 
     rows: MOCK_SALARIES,
-    fields: ['员工', '城市', '薪资', '部门'],
+    fields: ['员工', '职级', '部门', '基本薪资'],
     dimensionId: '员工'
   }
 ];
@@ -109,99 +98,89 @@ const INITIAL_INPUTS: DataVariable[] = [
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>(ViewState.LOGIC_STUDIO);
   const [inputs, setInputs] = useState<DataVariable[]>(INITIAL_INPUTS);
-  const [previewTab, setPreviewTab] = useState<'result' | 'source'>('result');
   const [functionSearch, setFunctionSearch] = useState('');
-  const [dataSourceSearch, setDataSourceSearch] = useState('');
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set(['1', '2', '3']));
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(INITIAL_INPUTS[2].id);
-  const [previewTableId, setPreviewTableId] = useState<string | null>(null);
-  const [draggedSourceIdx, setDraggedSourceIdx] = useState<number | null>(null);
+  
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(INITIAL_INPUTS[1].id);
+  // Add state to track selected field
+  const [selectedField, setSelectedField] = useState<string | null>(null);
 
-  const [reportColumns, setReportColumns] = useState<Set<string>>(new Set(['员工', '城市', '个人单量', '城市平均单量', '奖金系数']));
-  const [isColumnConfigOpen, setIsColumnConfigOpen] = useState(false);
-  const [hoveredFunc, setHoveredFunc] = useState<BusinessFunction | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
-  const [isDragOverEditor, setIsDragOverEditor] = useState(false);
-  const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
-  const [isDimensionMenuOpen, setIsDimensionMenuOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Lookup Modal State
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
+  const [lookupTargetTableId, setLookupTargetTableId] = useState<string>('');
+  const [lookupTargetField, setLookupTargetField] = useState<string>('');
+  const [lookupTriggerMode, setLookupTriggerMode] = useState<'full' | 'args'>('full');
+  const [savedCursorPos, setSavedCursorPos] = useState<number>(0);
+
+  // Manual override for preview mode, set to null to allow "Auto" detection
+  const [previewModeOverride, setPreviewModeOverride] = useState<'detail' | 'aggregate' | null>(null);
+
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const dimensionMenuRef = useRef<HTMLDivElement>(null);
-  const sourceMenuRef = useRef<HTMLDivElement>(null);
-  const columnConfigRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formulas, setFormulas] = useState<(FormulaBlock & { processes?: string[] })[]>([
     {
       id: 'step1',
-      targetName: '个人单量',
-      expression: 'COUNT(订单号)',
+      targetName: '城市系数',
+      expression: 'LOOKUP(城市基础档案, 保险系数)',
       latex: '',
       result: [],
-      dependencies: ['销售订单明细'],
-      dataSource: '销售订单明细',
-      groupByField: '员工',
+      dependencies: ['城市基础档案'],
+      explanation: '获取城市维度属性',
+      purpose: '属性获取',
       format: 'number'
     },
     {
       id: 'step2',
-      targetName: '城市总单量',
-      expression: 'COUNT(订单号)',
+      targetName: '本单分成',
+      expression: '保费 * 城市系数',
       latex: '',
       result: [],
-      dependencies: ['销售订单明细'],
-      dataSource: '销售订单明细',
-      groupByField: '城市',
-      format: 'number'
+      dependencies: ['保费', '城市系数'],
+      explanation: '行级计算：保费 x 系数',
+      purpose: '行级运算',
+      format: 'currency'
     },
     {
       id: 'step3',
-      targetName: '城市总人数',
-      expression: 'COUNT(员工)',
+      targetName: '员工总分成',
+      expression: 'SUM_GROUP(本单分成, BY=员工)',
       latex: '',
       result: [],
-      dependencies: ['员工薪资表'],
-      dataSource: '员工薪资表',
-      groupByField: '城市',
-      format: 'number'
+      dependencies: ['本单分成'],
+      groupByField: '员工',
+      explanation: '按员工聚合总分成',
+      purpose: '聚合计算',
+      format: 'currency'
     },
     {
       id: 'step4',
-      targetName: '城市平均单量',
-      expression: '城市总单量 / 城市总人数',
+      targetName: '基本薪资',
+      expression: 'LOOKUP(员工花名册, 基本薪资)',
       latex: '',
       result: [],
-      dependencies: ['城市总单量', '城市总人数'],
-      dataSource: '', 
-      groupByField: '',
-      format: 'number'
+      dependencies: ['员工花名册'],
+      explanation: '关联员工基本薪资',
+      purpose: '跨表关联',
+      format: 'currency'
     },
     {
       id: 'step5',
-      targetName: '奖金系数',
-      expression: '个人单量 / 城市平均单量',
+      targetName: '最终总收入',
+      expression: '员工总分成 + 基本薪资',
       latex: '',
       result: [],
-      dependencies: ['个人单量', '城市平均单量'],
-      dataSource: '',
-      groupByField: '',
-      format: 'percent'
+      dependencies: ['员工总分成', '基本薪资'],
+      explanation: '汇总总收入 (维度自动对齐)',
+      purpose: '薪资汇总',
+      format: 'currency'
     }
   ]);
 
   const [editingId, setEditingId] = useState<string | null>('step5');
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dimensionMenuRef.current && !dimensionMenuRef.current.contains(event.target as Node)) setIsDimensionMenuOpen(false);
-      if (sourceMenuRef.current && !sourceMenuRef.current.contains(event.target as Node)) setIsSourceMenuOpen(false);
-      if (columnConfigRef.current && !columnConfigRef.current.contains(event.target as Node)) setIsColumnConfigOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const activeFormula = formulas.find(f => f.id === editingId);
   useEffect(() => {
@@ -235,7 +214,7 @@ const App: React.FC = () => {
         const fields = Object.keys(jsonData[0] as object);
         const newTable: DataVariable = {
           id: Date.now().toString(),
-          name: file.name.replace(/\.[^/.]+$/, ""), // remove extension
+          name: file.name.replace(/\.[^/.]+$/, ""), 
           type: 'table',
           value: jsonData.length,
           rows: jsonData,
@@ -245,12 +224,25 @@ const App: React.FC = () => {
 
         setInputs(prev => [...prev, newTable]);
         setSelectedSourceId(newTable.id);
-        
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
     } catch (error) {
       console.error("Failed to parse Excel file", error);
-      alert("文件解析失败，请确保上传的是有效的 Excel 文件");
+      alert("文件解析失败");
+    }
+  };
+
+  const deleteStep = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (formulas.length <= 1) {
+        alert("至少保留一个计算步骤");
+        return;
+    }
+    const idx = formulas.findIndex(f => f.id === id);
+    const newFormulas = formulas.filter(f => f.id !== id);
+    setFormulas(newFormulas);
+    if (editingId === id) {
+        setEditingId(newFormulas[idx - 1]?.id || newFormulas[0]?.id);
     }
   };
 
@@ -267,164 +259,212 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSourceDragStart = (e: React.DragEvent, index: number) => {
-      setDraggedSourceIdx(index);
-      e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleSourceDrop = (e: React.DragEvent, index: number) => {
-      e.preventDefault();
-      if (draggedSourceIdx === null || draggedSourceIdx === index) return;
-      const newInputs = [...inputs];
-      const [removed] = newInputs.splice(draggedSourceIdx, 1);
-      newInputs.splice(index, 0, removed);
-      setInputs(newInputs);
-      setDraggedSourceIdx(null);
-  };
-
-  const filteredInputs = useMemo(() => {
-      if (!dataSourceSearch) return inputs;
-      return inputs.filter(i => 
-          i.name.toLowerCase().includes(dataSourceSearch.toLowerCase()) || 
-          i.fields?.some(f => f.toLowerCase().includes(dataSourceSearch.toLowerCase()))
-      );
-  }, [inputs, dataSourceSearch]);
-
-  useEffect(() => {
-      if (dataSourceSearch) {
-          const idsToExpand = filteredInputs.map(i => i.id);
-          setExpandedTables(new Set(idsToExpand));
-      }
-  }, [dataSourceSearch, filteredInputs]);
-
-  // --- Main Calculation Logic ---
   const computedFormulas = useMemo(() => {
     const resultsMap = new Map<string, any>();
-    const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
+    const dimensionMap = new Map<string, string>(); // Track dimension of each variable
+    
+    const baseTable = inputs.find(i => i.id === selectedSourceId) || inputs.find(i => i.type === 'table') || inputs[0];
     if (!baseTable || !baseTable.rows) return [];
+
+    // Base table fields have 'Row' dimension (or whatever the table's granular ID is)
+    baseTable.fields?.forEach(f => dimensionMap.set(f, baseTable.dimensionId || 'Row'));
 
     return formulas.map(f => {
       let finalResult: any = 0;
       let processes: string[] = [];
       let currentDeps: string[] = f.dependencies || [];
+      let outputDim = 'Row'; // Default to base granularity
+
+      // 1. LOOKUP Handling
+      const lookupMatch = f.expression.match(/LOOKUP\s*[(\uff08]\s*(.+?)\s*[,，]\s*(.+?)\s*[)\uff09]/i);
       
-      const rankMatch = f.expression.match(/RANK\((.*?), BY=(.*?)\)/i);
-      if (rankMatch) {
-         const targetField = rankMatch[1].trim();
-         const byField = rankMatch[2].trim();
-         let values = resultsMap.get(targetField);
-         if (!values) {
-             const inputSource = inputs.find(i => i.fields?.includes(targetField));
-             if (inputSource?.rows) values = inputSource.rows.map(r => parseFloat(r[targetField]) || 0);
-         }
-         let groupValues = resultsMap.get(byField);
-         if (!groupValues) groupValues = baseTable.rows?.map(r => r[byField]);
-
-         if (Array.isArray(values) && Array.isArray(groupValues) && values.length === groupValues.length) {
-            const combined = values.map((v, i) => ({ val: v, group: groupValues[i], originalIndex: i }));
-            const groups: Record<string, typeof combined> = {};
-            combined.forEach(item => {
-               if (!groups[item.group]) groups[item.group] = [];
-               groups[item.group].push(item);
-            });
-            const rankedResult = new Array(values.length).fill(0);
-            const processTrace = new Array(values.length).fill('');
-            Object.entries(groups).forEach(([groupName, items]) => {
-               items.sort((a, b) => b.val - a.val);
-               items.forEach((item, rankIdx) => {
-                  rankedResult[item.originalIndex] = rankIdx + 1;
-                  processTrace[item.originalIndex] = `组: ${groupName} → 排名: ${rankIdx + 1}`;
-               });
-            });
-            finalResult = rankedResult;
-            processes = processTrace;
-            if (!currentDeps.includes(targetField)) currentDeps.push(targetField);
-         }
-      } 
-      else if (f.dataSource && f.groupByField) {
-        if (!currentDeps.includes(f.dataSource)) currentDeps = [...currentDeps, f.dataSource];
-        const sourceTable = inputs.find(i => i.name === f.dataSource);
-        if (sourceTable && sourceTable.rows) {
-          const keyField = baseTable.fields?.[0] || 'id';
-          const sortedIds = baseTable.rows.map(r => r[keyField]); 
+      if (lookupMatch) {
+          const tableName = lookupMatch[1].trim();
+          const targetField = lookupMatch[2].trim();
+          const targetTable = inputs.find(t => t.name === tableName);
           
-          finalResult = sortedIds.map((entityId, idx) => {
-            const contextRow = baseTable.rows![idx];
-            const matchValue = contextRow[f.groupByField!];
-            const sourceRows = sourceTable.rows?.filter(r => r[f.groupByField!] === matchValue) || [];
-            const sumMatch = f.expression.match(/SUM\((.*?)\)/i);
-            const countMatch = f.expression.match(/COUNT\((.*?)\)/i);
+          if (targetTable && targetTable.rows) {
+              // Find the join key (common field)
+              const joinKey = baseTable.fields?.find(field => targetTable.fields?.includes(field));
+              
+              if (joinKey) {
+                  // If we are joining on 'Employee', the resulting data is conceptually 'Employee' dimension
+                  outputDim = joinKey; 
 
-            if (sumMatch) {
-              const fieldName = sumMatch[1].trim();
-              const total = sourceRows.reduce((s, r) => s + (parseFloat(r[fieldName]) || 0), 0);
-              return total;
-            } else if (countMatch) {
-               return sourceRows.length;
-            }
+                  const lookups = baseTable.rows.map(row => {
+                      const joinVal = row[joinKey];
+                      const targetRow = targetTable.rows?.find(r => String(r[joinKey]).trim() === String(joinVal).trim());
+                      let val: any = 0;
+                      let status = 'miss';
+                      if (targetRow && targetRow[targetField] !== undefined) {
+                          val = targetRow[targetField];
+                          status = 'hit';
+                          // Try parse number
+                          if (!isNaN(parseFloat(val))) val = parseFloat(val);
+                      }
+                      return { joinVal, val, status };
+                  });
+                  finalResult = lookups.map(l => l.val);
+                  processes = lookups.map(l => `Match ${joinKey}:${l.joinVal} -> ${l.val}`);
+                  if(!currentDeps.includes(tableName)) currentDeps.push(tableName);
+              }
+          }
+      }
+      // 2. AGGREGATION_GROUP Handling
+      else if (f.expression.match(/(SUM|AVG|MAX|MIN|COUNT)_GROUP\s*[(\uff08]/i)) {
+          const aggMatch = f.expression.match(/(SUM|AVG|MAX|MIN|COUNT)_GROUP\s*[(\uff08]\s*(.+?)\s*[,，]\s*BY\s*=\s*(.+?)\s*[)\uff09]/i);
+          if (aggMatch) {
+              const op = aggMatch[1].toUpperCase();
+              const metricName = aggMatch[2].trim();
+              const groupField = aggMatch[3].trim();
+              
+              outputDim = groupField; // Explicitly sets dimension to the Group Key
 
-            const avgMatch = f.expression.match(/AVG\((.*?)\)/i);
-            if (avgMatch) {
-              const fieldName = avgMatch[1].trim();
-              const total = sourceRows.reduce((s, r) => s + (parseFloat(r[fieldName]) || 0), 0);
-              const count = sourceRows.length || 1;
-              return total / count;
+              let values = resultsMap.get(metricName);
+              if (!values) values = baseTable.rows.map(r => parseFloat(r[metricName]) || 0);
+              
+              if (Array.isArray(values)) {
+                 const groups: Record<string, number[]> = {};
+                 baseTable.rows.forEach((row, idx) => {
+                     const key = row[groupField];
+                     if (!groups[key]) groups[key] = [];
+                     groups[key].push(values[idx] || 0);
+                 });
+                 const groupResults: Record<string, number> = {};
+                 Object.entries(groups).forEach(([key, vals]) => {
+                     switch (op) {
+                         case 'SUM': groupResults[key] = vals.reduce((a, b) => a + b, 0); break;
+                         case 'AVG': groupResults[key] = vals.reduce((a, b) => a + b, 0) / vals.length; break;
+                         case 'MAX': groupResults[key] = Math.max(...vals); break;
+                         case 'MIN': groupResults[key] = Math.min(...vals); break;
+                         case 'COUNT': groupResults[key] = vals.length; break;
+                     }
+                 });
+                 finalResult = baseTable.rows.map(row => groupResults[row[groupField]] || 0);
+                 processes = baseTable.rows.map(row => `Group ${row[groupField]} (${op}) -> ${groupResults[row[groupField]]}`);
+              }
+          }
+      }
+      // 3. Pure Math
+      else {
+        const calculatedValues: any[] = [];
+        const traceValues: string[] = [];
+        
+        // Smart Dimension Logic: Check dependencies' dimensions using Tokenization to avoid substring matching bugs
+        const depDims = new Set<string>();
+        // Tokenize by operators, parens, spaces, commas
+        const tokens = f.expression.split(/[+\-*/^(),\s=<>]+/).map(t => t.trim()).filter(t => t && isNaN(Number(t)));
+        
+        tokens.forEach(token => {
+            if (dimensionMap.has(token)) {
+                depDims.add(dimensionMap.get(token)!);
+            } else if (baseTable.fields?.includes(token)) {
+                // If it's a raw field, it's a Row dependency
+                depDims.add(baseTable.dimensionId || 'Row');
             }
-            
-            return 0;
-          });
-          
-          processes = finalResult.map((val: any, idx: number) => {
-              const contextRow = baseTable.rows![idx];
-              const key = contextRow[f.groupByField!];
-              return `${f.groupByField}=${key} → Found ${val}`;
-          });
+        });
+
+        const dims = Array.from(depDims);
+        // Rule: If all dependencies are of the same Dimension (e.g., 'Employee'), the result is 'Employee'.
+        // If there is any 'Row' dependency mixed in, the result degrades to 'Row'.
+        if (dims.length > 0 && dims.every(d => d !== 'Row' && d === dims[0])) {
+             outputDim = dims[0];
+        } else {
+            outputDim = 'Row';
         }
-      } else {
-        const sortedIds = baseTable.rows.map((_, i) => i);
-        finalResult = sortedIds.map((_, idx) => {
+
+        const sortedResultKeys = Array.from(resultsMap.keys()).sort((a, b) => b.length - a.length);
+        const sortedFields = [...(baseTable.fields || [])].sort((a, b) => b.length - a.length);
+
+        baseTable.rows.forEach((row, idx) => {
             let exprToEval = f.expression;
             let traceExpr = f.expression;
-            resultsMap.forEach((val, key) => {
+            
+            sortedResultKeys.forEach((key) => {
+               const val = resultsMap.get(key);
                const v = Array.isArray(val) ? val[idx] : val;
-               exprToEval = exprToEval.split(key).join(v);
-               let displayV = v;
-               if (typeof v === 'number') displayV = parseFloat(v.toFixed(2));
-               traceExpr = traceExpr.split(key).join(`<span class="font-bold text-indigo-600">${displayV}</span>`);
+               if (exprToEval.includes(key)) {
+                   exprToEval = exprToEval.split(key).join(typeof v === 'number' ? v.toString() : `"${v}"`);
+                   let displayV = typeof v === 'number' ? parseFloat(v.toFixed(2)) : v;
+                   traceExpr = traceExpr.split(key).join(`<span class="font-bold text-indigo-600">${displayV}</span>`);
+               }
             });
-
+            sortedFields.forEach(field => {
+                if (exprToEval.includes(field)) {
+                    const v = row[field];
+                    exprToEval = exprToEval.split(field).join(typeof v === 'string' ? `'${v}'` : v);
+                    traceExpr = traceExpr.split(field).join(`<span class="font-bold text-slate-700">${v}</span>`);
+                }
+            });
             try {
-                return eval(exprToEval) || 0;
-            } catch (e) { return 0; }
+                const res = eval(exprToEval);
+                calculatedValues.push(isNaN(res) ? 0 : res);
+            } catch (e) { calculatedValues.push(0); }
+            traceValues.push(traceExpr);
         });
-        processes = sortedIds.map((_, idx) => {
-             let traceExpr = f.expression;
-             resultsMap.forEach((val, key) => {
-               const v = Array.isArray(val) ? val[idx] : val;
-               let displayV = v;
-               if (typeof v === 'number') displayV = parseFloat(v.toFixed(2));
-               traceExpr = traceExpr.split(key).join(`<span class="font-bold text-indigo-600">${displayV}</span>`);
-            });
-            return traceExpr;
-        });
+        processes = traceValues;
+        finalResult = calculatedValues;
       }
 
       resultsMap.set(f.targetName, finalResult);
-      return { ...f, result: finalResult, dependencies: currentDeps, processes };
+      dimensionMap.set(f.targetName, outputDim);
+      
+      return { ...f, result: finalResult, dependencies: currentDeps, processes, outputDimension: outputDim };
     });
-  }, [formulas, inputs]);
+  }, [formulas, inputs, selectedSourceId]);
 
-  const insertTextAtCursor = (text: string) => {
+  const insertTextAtCursor = (text: string, overrideCursor?: number) => {
     if (!editorRef.current || !editingId) return;
-    const start = editorRef.current.selectionStart;
-    const end = editorRef.current.selectionEnd;
+    const start = overrideCursor !== undefined ? overrideCursor : editorRef.current.selectionStart;
+    const end = overrideCursor !== undefined ? overrideCursor : editorRef.current.selectionEnd;
     const currentExpr = activeFormula?.expression || '';
     const newExpr = currentExpr.substring(0, start) + text + currentExpr.substring(end);
     setFormulas(prev => prev.map(f => f.id === editingId ? { ...f, expression: newExpr } : f));
   };
+  
+  const handleFunctionClick = (fn: BusinessFunction) => {
+    if (fn.name === 'LOOKUP') {
+        // Save current cursor before opening modal
+        setSavedCursorPos(editorRef.current?.selectionStart || 0);
+        setLookupTriggerMode('full');
+        setLookupTargetTableId(inputs.length > 0 ? inputs[0].id : '');
+        setLookupTargetField('');
+        setIsLookupModalOpen(true);
+    } else {
+        insertTextAtCursor(`${fn.name}()`);
+    }
+  };
 
-  const handleDragStart = (e: React.DragEvent, text: string) => {
-    e.dataTransfer.setData('text/plain', text);
+  const handleFormulaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newVal = e.target.value;
+    const cursor = e.target.selectionStart;
+    
+    // Update value
+    setFormulas(prev => prev.map(f => f.id === editingId ? {...f, expression: newVal} : f));
+
+    // Check for trigger "lookup(" or "LOOKUP("
+    const textBefore = newVal.substring(0, cursor);
+    if (textBefore.endsWith('LOOKUP(') || textBefore.endsWith('lookup(')) {
+       setSavedCursorPos(cursor);
+       setLookupTriggerMode('args');
+       setLookupTargetTableId(inputs.length > 0 ? inputs[0].id : '');
+       setLookupTargetField('');
+       setIsLookupModalOpen(true);
+    }
+  };
+
+  const handleInsertLookup = () => {
+    const table = inputs.find(i => i.id === lookupTargetTableId);
+    if (table && lookupTargetField) {
+        if (lookupTriggerMode === 'args') {
+            // User typed "LOOKUP(", so just insert "Table, Field)"
+            insertTextAtCursor(`${table.name}, ${lookupTargetField})`, savedCursorPos);
+        } else {
+            // User clicked button, insert full function "LOOKUP(Table, Field)"
+            insertTextAtCursor(`LOOKUP(${table.name}, ${lookupTargetField})`, savedCursorPos);
+        }
+        setIsLookupModalOpen(false);
+    }
   };
 
   const formatValue = (val: any, format: string | undefined) => {
@@ -434,236 +474,119 @@ const App: React.FC = () => {
      return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
   
-  const getGranularityInfo = (f: any) => {
-      if (!f.groupByField) return { type: 'derived', label: '派生计算', icon: Calculator, color: 'text-blue-500', bg: 'bg-blue-50' };
-      if (f.groupByField === '员工') return { type: 'row', label: '行级粒度 (员工)', icon: Split, color: 'text-indigo-500', bg: 'bg-indigo-50' };
-      return { type: 'broadcast', label: `广播粒度 (${f.groupByField})`, icon: Network, color: 'text-orange-500', bg: 'bg-orange-50' };
-  };
-
-  const renderLineageView = () => {
-    const nodes: any[] = [];
-    const edges: any[] = [];
-    const levelMap = new Map<string, number>();
-
-    inputs.forEach(i => {
-      levelMap.set(i.name, 0);
-      nodes.push({ id: i.name, type: 'source', label: i.name, level: 0, dimension: i.dimensionId });
-    });
-
-    let changed = true;
-    let maxIter = 10;
-    computedFormulas.forEach((f: any) => { if (!levelMap.has(f.targetName)) levelMap.set(f.targetName, 0); });
-
-    while (changed && maxIter-- > 0) {
-      changed = false;
-      computedFormulas.forEach((f: any) => {
-        let maxDepLevel = -1;
-        const deps = new Set<string>(f.dependencies || []);
-        if (f.dataSource) deps.add(f.dataSource);
-        deps.forEach(d => { if (levelMap.has(d)) maxDepLevel = Math.max(maxDepLevel, levelMap.get(d)!); });
-        const newLvl = maxDepLevel + 1;
-        if (newLvl > (levelMap.get(f.targetName) || 0)) { levelMap.set(f.targetName, newLvl); changed = true; }
-      });
-    }
-
-    const rowsByLevel: Record<number, any[]> = {};
-    nodes.forEach(n => { if (!rowsByLevel[n.level]) rowsByLevel[n.level] = []; rowsByLevel[n.level].push(n); });
-    computedFormulas.forEach((f: any) => {
-      const lvl = levelMap.get(f.targetName) || 1;
-      const node = { id: f.targetName, type: 'formula', label: f.targetName, level: lvl, formulaId: f.id, dimension: f.groupByField || 'Global' };
-      nodes.push(node);
-      if (!rowsByLevel[lvl]) rowsByLevel[lvl] = []; rowsByLevel[lvl].push(node);
-      const deps = new Set<string>(f.dependencies || []);
-      if (f.dataSource) deps.add(f.dataSource);
-      deps.forEach(d => edges.push({ from: d, to: f.targetName }));
-    });
-
-    const NODE_W = 200;
-    const NODE_H = 70;
-    const X_GAP = 140;
-    const Y_GAP = 30;
-    const nodePos = new Map<string, { x: number, y: number }>();
-
-    Object.keys(rowsByLevel).forEach(lvlStr => {
-      const lvl = parseInt(lvlStr);
-      rowsByLevel[lvl].forEach((n, idx) => {
-        nodePos.set(n.id, { x: 80 + lvl * (NODE_W + X_GAP), y: 80 + idx * (NODE_H + Y_GAP) });
-      });
-    });
-
-    return (
-      <div className="flex-1 overflow-hidden bg-slate-50 flex flex-col">
-        <div className="h-[64px] border-b border-slate-200 bg-white flex items-center px-8 shrink-0 justify-between">
-           <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
-              <GitGraph className="text-indigo-600" size={18} />
-              <span>智能核算血缘图谱</span>
-           </div>
-        </div>
-        <div className="flex-1 overflow-auto p-12 relative cursor-grab active:cursor-grabbing">
-           <svg width={3000} height={2000} className="overflow-visible">
-              <defs>
-                 <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
-                 </marker>
-              </defs>
-              {edges.map((e, i) => {
-                 const start = nodePos.get(e.from);
-                 const end = nodePos.get(e.to);
-                 if (!start || !end) return null;
-                 const sx = start.x + NODE_W;
-                 const sy = start.y + NODE_H / 2;
-                 const ex = end.x;
-                 const ey = end.y + NODE_H / 2;
-                 return <path key={i} d={`M ${sx} ${sy} C ${sx + 80} ${sy}, ${ex - 80} ${ey}, ${ex} ${ey}`} fill="none" stroke="#e2e8f0" strokeWidth="2" markerEnd="url(#arrow)" />;
-              })}
-              {nodes.map(n => {
-                 const pos = nodePos.get(n.id);
-                 if (!pos) return null;
-                 const isSource = n.type === 'source';
-                 return (
-                    <g key={n.id} transform={`translate(${pos.x}, ${pos.y})`} className="group" onClick={() => { if (n.formulaId) { setEditingId(n.formulaId); setActiveView(ViewState.LOGIC_STUDIO); } }}>
-                       <rect width={NODE_W} height={NODE_H} rx="12" fill="white" stroke={isSource ? '#3b82f6' : '#6366f1'} strokeWidth="1.5" className="shadow-sm group-hover:shadow-md transition-all" />
-                       <foreignObject width={NODE_W} height={NODE_H}>
-                          <div className="p-3 h-full flex flex-col justify-between">
-                             <div className={`text-[7px] font-black uppercase tracking-wider ${isSource ? 'text-blue-500' : 'text-indigo-500'}`}>{isSource ? 'DataSource' : 'LogicMetric'}</div>
-                             <div className="text-[11px] font-bold text-slate-700 truncate">{n.label}</div>
-                             <div className="flex items-center gap-1 opacity-50"><Layers size={8} /><span className="text-[8px] font-bold uppercase truncate">{n.dimension}</span></div>
-                          </div>
-                       </foreignObject>
-                    </g>
-                 );
-              })}
-           </svg>
-        </div>
-      </div>
-    );
-  };
-
-  const renderDataSourcesView = () => {
-    const activeSource = inputs.find(i => i.id === selectedSourceId) || inputs[0];
-    return (
-      <div className="flex-1 flex bg-slate-50 overflow-hidden">
-        <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">数据资产中心</h2>
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-all flex items-center gap-1.5 px-3"
-            >
-              <Upload size={14} />
-              <span className="text-[10px] font-bold">导入</span>
-            </button>
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              className="hidden"
-              accept=".xlsx, .xls"
-            />
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {inputs.map(input => (
-              <button 
-                key={input.id} 
-                onClick={() => setSelectedSourceId(input.id)}
-                className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all text-left group ${selectedSourceId === input.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white border-slate-100 hover:border-indigo-200'}`}
-              >
-                <TableProperties size={20} className={selectedSourceId === input.id ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'} />
-                <div className="overflow-hidden">
-                  <div className="text-xs font-bold truncate">{input.name}</div>
-                  <div className={`text-[9px] uppercase font-black tracking-tighter mt-0.5 ${selectedSourceId === input.id ? 'text-indigo-200' : 'text-slate-300'}`}>{input.rows?.length} 条记录 / {input.fields?.length} 字段</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="h-[64px] bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-             <div className="flex items-center gap-4">
-                <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest">选中表</div>
-                <h1 className="font-bold text-slate-800">{activeSource.name}</h1>
-             </div>
-             <div className="flex items-center gap-2">
-                <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all"><Download size={18} /></button>
-                <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={18} /></button>
-             </div>
-          </header>
-          <div className="flex-1 overflow-auto p-8">
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden min-h-full">
-               <table className="w-full text-left border-collapse text-xs">
-                  <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
-                     <tr>
-                        {activeSource.fields?.map(f => (
-                           <th key={f} className="px-6 py-4 font-bold text-slate-500">{f}</th>
-                        ))}
-                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                     {activeSource.rows?.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                           {activeSource.fields?.map(f => (
-                              <td key={f} className="px-6 py-4 text-slate-700">{row[f]}</td>
-                           ))}
-                        </tr>
-                     ))}
-                  </tbody>
-               </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getGranularityInfo = (f: FormulaBlock & { outputDimension?: string }) => {
+      // Logic Studio Badge
+      if (f.expression.match(/_GROUP\s*[(\uff08]/)) return { label: 'Aggregation', icon: Network, color: 'text-orange-600', bg: 'bg-orange-50' };
+      if (f.expression.includes('LOOKUP')) return { label: 'Lookup / Join', icon: Link2, color: 'text-blue-600', bg: 'bg-blue-50' };
+      if (f.outputDimension && f.outputDimension !== 'Row') return { label: `Dim: ${f.outputDimension}`, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' };
+      return { label: 'Row Level', icon: Split, color: 'text-indigo-600', bg: 'bg-indigo-50' };
   };
 
   const renderReportsView = () => {
-    const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
-     const availableColumns = [
-        ...(baseTable?.fields || []).map(f => ({ name: f, type: 'source', dimension: baseTable?.dimensionId })),
-        ...computedFormulas.filter((f: any) => Array.isArray(f.result)).map((f: any) => ({ 
-           name: f.targetName, type: 'metric',
-           dimension: f.groupByField ? `Agg: ${f.groupByField}` : 'Global',
-           format: f.format 
-        }))
-     ];
-     const tableRows = baseTable.rows?.map((entity, idx) => {
-        const rowData: Record<string, any> = { ...entity };
-        computedFormulas.forEach((f: any) => { if (Array.isArray(f.result)) rowData[f.targetName] = f.result[idx]; });
-        return rowData;
-     }) || [];
+    // Dynamic Report Generation
+    const baseTable = inputs.find(i => i.id === selectedSourceId) || inputs.find(i => i.type === 'table') || inputs[0];
+    
+    // Identify available dimensions from formulas
+    const computedDims = new Set<string>(['Row']);
+    computedFormulas.forEach(f => { if(f.outputDimension) computedDims.add(f.outputDimension); });
+    const availableDims = Array.from(computedDims).filter(d => d !== 'Row');
 
-     return (
+    // Default to first available agg dimension or 'Row'
+    const [currentDim, setCurrentDim] = useState<string>(availableDims.length > 0 ? availableDims[0] : 'Row');
+
+    // Prepare Data
+    const displayRows = useMemo(() => {
+        if (currentDim === 'Row') {
+            // Full Detail View
+            return baseTable.rows?.map((row, idx) => {
+                const r: any = { ...row };
+                computedFormulas.forEach(f => { if(Array.isArray(f.result)) r[f.targetName] = f.result[idx]; });
+                return r;
+            }) || [];
+        } else {
+            // Aggregate View
+            const groups = new Map<string, any>();
+            baseTable.rows?.forEach((row, idx) => {
+                const key = row[currentDim];
+                if (!groups.has(key)) {
+                    // Initialize with dimension key
+                    groups.set(key, { [currentDim]: key, _count: 0 });
+                }
+                const entry = groups.get(key);
+                entry._count++;
+                
+                // Add computed metrics that match this dimension
+                computedFormulas.forEach(f => {
+                    if (f.outputDimension === currentDim) {
+                        // Since it's the same dimension, value should be consistent across the group
+                        entry[f.targetName] = Array.isArray(f.result) ? f.result[idx] : f.result;
+                    }
+                });
+            });
+            return Array.from(groups.values());
+        }
+    }, [currentDim, baseTable, computedFormulas]);
+
+    // Determine Columns
+    const columns = useMemo(() => {
+        if (displayRows.length === 0) return [];
+        return Object.keys(displayRows[0]).filter(k => k !== '_count').map(k => {
+            const f = computedFormulas.find(cf => cf.targetName === k);
+            return { name: k, format: f?.format, isMetric: !!f };
+        });
+    }, [displayRows, computedFormulas]);
+
+    return (
         <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden">
            <div className="h-[64px] border-b border-slate-200 bg-white flex items-center justify-between px-8 shrink-0">
-               <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
-                  <BarChart3 className="text-indigo-600" size={18} />
-                  <span>核算结果报表</span>
+               <div className="flex items-center gap-4">
+                   <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
+                      <BarChart3 className="text-indigo-600" size={18} />
+                      <span>Dynamic Report: {baseTable.name}</span>
+                   </div>
+                   
+                   <div className="flex bg-slate-100 p-1 rounded-lg">
+                       <button 
+                           onClick={() => setCurrentDim('Row')}
+                           className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${currentDim === 'Row' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
+                       >
+                           Detail (Row)
+                       </button>
+                       {availableDims.map(d => (
+                           <button 
+                               key={d}
+                               onClick={() => setCurrentDim(d)}
+                               className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${currentDim === d ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
+                           >
+                               By {d}
+                           </button>
+                       ))}
+                   </div>
                </div>
-               <button onClick={() => setIsColumnConfigOpen(!isColumnConfigOpen)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600">
-                  <Layout size={14} /> 字段配置
-               </button>
+               <div className="text-xs text-slate-400 font-medium">
+                   {displayRows.length} Records
+               </div>
            </div>
+           
            <div className="flex-1 overflow-auto p-8">
                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <table className="w-full text-left border-collapse text-sm">
-                     <thead className="bg-slate-50 border-b border-slate-200">
+                     <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                         <tr>
-                           {availableColumns.filter(c => reportColumns.has(c.name)).map(col => (
-                              <th key={col.name} className="px-6 py-4 font-bold text-slate-600">
-                                 <div className="flex flex-col gap-1.5">
-                                    <span>{col.name}</span>
-                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter bg-slate-200 px-1 rounded w-fit">{col.dimension}</span>
-                                 </div>
+                           {columns.map(col => (
+                              <th key={col.name} className="px-6 py-4 font-bold text-slate-600 whitespace-nowrap bg-slate-50">
+                                 {col.name}
                               </th>
                            ))}
                         </tr>
                      </thead>
                      <tbody className="divide-y divide-slate-100">
-                        {tableRows.map((row, idx) => (
+                        {displayRows.map((row, idx) => (
                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                              {availableColumns.filter(c => reportColumns.has(c.name)).map(col => (
-                                 <td key={col.name} className="px-6 py-4 text-slate-700">
-                                    <span className={col.type === 'metric' ? 'font-mono font-bold text-indigo-600' : ''}>
-                                       {formatValue(row[col.name], (col as any).format)}
+                              {columns.map(col => (
+                                 <td key={col.name} className="px-6 py-4 text-slate-700 whitespace-nowrap">
+                                    <span className={col.isMetric ? 'font-mono font-bold text-indigo-600' : ''}>
+                                       {formatValue(row[col.name], col.format)}
                                     </span>
                                  </td>
                               ))}
@@ -674,488 +597,479 @@ const App: React.FC = () => {
                </div>
            </div>
         </div>
-     );
+    );
+  };
+
+  const renderLookupModal = () => {
+    if (!isLookupModalOpen) return null;
+    
+    const targetTable = inputs.find(i => i.id === lookupTargetTableId);
+    const baseTable = inputs.find(i => i.id === selectedSourceId);
+    
+    // Auto-detect common join key
+    const joinKey = baseTable?.fields?.find(field => targetTable?.fields?.includes(field));
+
+    // Preview Data: Get first 3 rows of target table
+    const previewRows = targetTable?.rows?.slice(0, 3) || [];
+    const previewCols = targetTable?.fields || [];
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-[600px] flex flex-col overflow-hidden max-h-[80vh]">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <div className="flex items-center gap-3">
+                         <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                             <Link2 size={20} />
+                         </div>
+                         <div>
+                            <h3 className="font-bold text-slate-900">Configure Cross-Table Lookup</h3>
+                            <p className="text-[10px] text-slate-500 font-medium">Link data from another source</p>
+                         </div>
+                    </div>
+                    <button onClick={() => setIsLookupModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+                
+                <div className="p-8 space-y-6 overflow-y-auto">
+                    {/* Source Selection */}
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Source Table</label>
+                            <select 
+                                value={lookupTargetTableId}
+                                onChange={(e) => {
+                                    setLookupTargetTableId(e.target.value);
+                                    setLookupTargetField('');
+                                }}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                {inputs.map(input => (
+                                    <option key={input.id} value={input.id} disabled={input.id === selectedSourceId}>
+                                        {input.name} {input.id === selectedSourceId ? '(Current)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Field Selection */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Return Field</label>
+                            <select 
+                                value={lookupTargetField}
+                                onChange={(e) => setLookupTargetField(e.target.value)}
+                                disabled={!targetTable}
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                            >
+                                <option value="">Select a field...</option>
+                                {targetTable?.fields?.map(f => (
+                                    <option key={f} value={f}>{f}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Join Logic Visualization */}
+                    <div className={`p-4 rounded-xl border ${joinKey ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                             {joinKey ? (
+                                 <CheckCircle2 size={16} className="text-emerald-600" />
+                             ) : (
+                                 <AlertTriangle size={16} className="text-amber-600" />
+                             )}
+                             <span className={`text-xs font-bold ${joinKey ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                 {joinKey ? 'Automatic Link Detected' : 'No Common Link Found'}
+                             </span>
+                        </div>
+                        
+                        {joinKey ? (
+                             <div className="flex items-center justify-between text-xs text-slate-600 bg-white/60 p-3 rounded-lg border border-white/50">
+                                 <span className="font-bold text-slate-700">{baseTable?.name}</span>
+                                 <div className="flex items-center gap-2 text-indigo-500 px-2">
+                                     <span className="font-mono bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 text-indigo-600">{joinKey}</span>
+                                     <ArrowRight size={14} />
+                                     <span className="font-mono bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 text-indigo-600">{joinKey}</span>
+                                 </div>
+                                 <span className="font-bold text-slate-700">{targetTable?.name}</span>
+                             </div>
+                        ) : (
+                            <p className="text-xs text-amber-700 leading-relaxed">
+                                The system cannot automatically link these tables because they don't share a field with the same name (e.g., "City"). The lookup may return 0.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Data Preview */}
+                    {targetTable && (
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                                <Table2 size={12}/> Data Preview ({targetTable.name})
+                            </label>
+                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                <table className="w-full text-left text-[10px]">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            {previewCols.map(col => (
+                                                <th key={col} className={`px-3 py-2 font-medium text-slate-500 ${col === lookupTargetField ? 'bg-indigo-50 text-indigo-600 font-bold' : ''}`}>
+                                                    {col}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {previewRows.map((row: any, i) => (
+                                            <tr key={i} className="hover:bg-slate-50">
+                                                {previewCols.map(col => (
+                                                    <td key={col} className={`px-3 py-2 text-slate-700 ${col === lookupTargetField ? 'bg-indigo-50/30 font-bold text-indigo-700' : ''}`}>
+                                                        {row[col]}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <div className="bg-slate-50 px-3 py-1.5 text-[9px] text-slate-400 border-t border-slate-200 text-center">
+                                    Showing first 3 rows
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                    <button onClick={() => setIsLookupModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+                    <button 
+                        onClick={handleInsertLookup}
+                        disabled={!lookupTargetField}
+                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        Insert Formula
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
   };
 
   const renderCalculationResult = () => {
-    const activeResult = computedFormulas.find(f => f.id === editingId);
-    const baseTable = inputs.find(i => i.name === '员工薪资表') || inputs[0]; 
-    if (!activeResult || !baseTable || !baseTable.rows) return null;
-    const isArrayResult = Array.isArray(activeResult.result);
-    
-    const granularity = getGranularityInfo(activeResult);
-
-    return (
-      <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col">
-        <div className="bg-indigo-50/50 border-b border-indigo-100 px-4 py-2 flex items-center justify-between text-xs">
-           <div className="flex items-center gap-2 text-indigo-900">
-             <TableProperties size={14} className="text-indigo-500"/>
-             <span className="font-bold opacity-70">Context Anchor:</span>
-             <span className="font-bold">{baseTable.name}</span>
-             <span className="text-indigo-300 mx-1">|</span>
-             <span className="opacity-70">Granularity:</span>
-             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${granularity.bg} ${granularity.color}`}>{granularity.label}</span>
-           </div>
-           
-           {granularity.type === 'broadcast' && (
-             <div className="flex items-center gap-1.5 text-[10px] text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full font-bold">
-               <Network size={10} />
-               <span>Auto-Broadcasting Active</span>
-             </div>
-           )}
-        </div>
-
-        <table className="w-full text-left border-collapse text-xs">
-          <thead className="bg-slate-50/80 border-b border-slate-200 font-bold text-slate-500">
-            <tr>
-              <th className="px-4 py-3 border-r border-slate-100">{baseTable.fields?.[0] || 'ID'}</th>
-              <th className="px-4 py-3 border-r border-slate-100">核算轨迹 Trace</th>
-              <th className="px-4 py-3 text-right">结果值 ({activeResult.format || 'Auto'})</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {baseTable.rows.map((row, idx) => {
-              const val = isArrayResult ? activeResult.result[idx] : activeResult.result;
-              const proc = activeResult.processes?.[idx] || activeResult.expression;
-              return (
-                <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
-                  <td className="px-4 py-3 font-bold text-slate-700 border-r border-slate-100/50">{row[baseTable.fields?.[0] || '']}</td>
-                  <td className="px-4 py-3 text-slate-500 font-mono truncate max-w-xs" dangerouslySetInnerHTML={{ __html: proc }}></td>
-                  <td className="px-4 py-3 text-right font-black text-indigo-600 font-mono">
-                    {formatValue(val, activeResult.format)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  const renderSourceTablePreview = () => {
-    const activeResult = computedFormulas.find(f => f.id === editingId);
-    if (!activeResult || !activeResult.dataSource) {
-      return (
-        <div className="h-full flex flex-col items-center justify-center text-slate-400">
-           <Database size={48} className="mb-4 opacity-20" />
-           <p className="text-xs font-bold">未关联数据源</p>
-           <p className="text-[10px] mt-1">请在上方选择一个数据表作为计算上下文</p>
-        </div>
-      );
-    }
-
-    const sourceTable = inputs.find(i => i.name === activeResult.dataSource);
-    if (!sourceTable) return <div className="p-6 text-center text-slate-400 text-xs">找不到数据源: {activeResult.dataSource}</div>;
-
-    return (
-      <div className="overflow-hidden border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col h-full">
-         <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-               <TableProperties size={14} className="text-slate-400" />
-               <span className="text-xs font-bold text-slate-700">{sourceTable.name}</span>
-            </div>
-            <span className="text-[10px] font-mono text-slate-400">{sourceTable.rows?.length} rows</span>
-         </div>
-         <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse text-xs">
-               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 sticky top-0 z-10">
-                  <tr>
-                     {sourceTable.fields?.map(f => (
-                        <th key={f} className="px-4 py-2 font-medium whitespace-nowrap bg-slate-50">{f}</th>
-                     ))}
-                  </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                  {sourceTable.rows?.slice(0, 100).map((row, i) => (
-                     <tr key={i} className="hover:bg-slate-50">
-                        {sourceTable.fields?.map(f => (
-                           <td key={f} className="px-4 py-2 text-slate-600 whitespace-nowrap">{row[f]}</td>
+     return (
+        <div className="flex h-full font-sans text-slate-900 overflow-hidden">
+            {/* === LEFT COLUMN: Data & Functions === */}
+            <div className="w-[280px] border-r border-slate-200 flex flex-col bg-slate-50 shrink-0">
+                <div className="p-4 border-b border-slate-200 bg-white">
+                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                        <Database size={16} className="text-indigo-600"/> Data Assets
+                    </h2>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                    <div className="mb-4 px-2">
+                         <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full p-2 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center gap-2 text-xs font-bold hover:bg-indigo-200 transition-colors"
+                        >
+                          <Upload size={14} /> Import Table
+                        </button>
+                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx, .xls" />
+                    </div>
+                    {inputs.map((input) => (
+                          <div key={input.id} className={`mb-2 rounded-lg border transition-all bg-white ${selectedSourceId === input.id ? 'border-indigo-400 shadow-sm ring-1 ring-indigo-50' : 'border-slate-200 hover:border-indigo-200'}`}>
+                            <div className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedSourceId(input.id); toggleTableExpansion(input.id); }}>
+                                {expandedTables.has(input.id) ? <ChevronDown size={14} className="text-slate-300" /> : <ChevronRight size={14} className="text-slate-300" />}
+                                <div className="flex-1 overflow-hidden">
+                                    <span className="text-xs font-bold text-slate-700 truncate block">{input.name}</span>
+                                    <span className="text-[9px] text-slate-400 font-medium">{input.rows?.length} rows</span>
+                                </div>
+                            </div>
+                            {expandedTables.has(input.id) && (
+                               <div className="px-2 pb-2 space-y-1 ml-4 border-l-2 border-slate-100 pl-2">
+                                 {input.fields?.map(f => {
+                                     const isSelected = selectedField === f && selectedSourceId === input.id;
+                                     return (
+                                     <div 
+                                        key={f} 
+                                        draggable 
+                                        onDragStart={(e) => e.dataTransfer.setData('text/plain', f)} 
+                                        onClick={(e) => { 
+                                            e.stopPropagation();
+                                            setSelectedSourceId(input.id);
+                                            setSelectedField(f);
+                                        }}
+                                        onDoubleClick={() => insertTextAtCursor(f)}
+                                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-indigo-100 ring-1 ring-indigo-200' : 'hover:bg-indigo-50'}`}
+                                     >
+                                        <div className={`w-4 h-4 flex items-center justify-center rounded text-[9px] font-bold ${isSelected ? 'bg-indigo-500 text-white' : 'bg-blue-100 text-blue-600'}`}>#</div>
+                                        <span className={`text-xs font-medium flex-1 truncate ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-600'}`}>{f}</span>
+                                        {isSelected && <MousePointerClick size={12} className="text-indigo-400 animate-pulse"/>}
+                                     </div>
+                                 )})}
+                               </div>
+                            )}
+                          </div>
+                    ))}
+                </div>
+                <div className="h-1/3 flex flex-col bg-white shrink-0 border-t border-slate-200">
+                     <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><FunctionSquare size={14}/> Functions</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-2">
+                        {BUSINESS_FUNCTIONS.map(fn => (
+                           <div key={fn.name} draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', fn.name)} onClick={() => handleFunctionClick(fn)} className={`px-3 py-2 bg-white border border-slate-200 rounded-md hover:border-indigo-500 cursor-pointer mb-1 flex justify-between ${fn.name === 'LOOKUP' ? 'ring-1 ring-indigo-100 bg-indigo-50/50' : ''}`}>
+                              <span className="text-xs font-bold text-indigo-700 font-mono">{fn.name}</span>
+                              <span className="text-[10px] text-slate-400">{fn.displayName}</span>
+                           </div>
                         ))}
-                     </tr>
-                  ))}
-               </tbody>
-            </table>
-         </div>
-      </div>
-    );
-  };
+                     </div>
+                </div>
+            </div>
+    
+            {/* === MIDDLE COLUMN: Workspace === */}
+            <div className="flex-1 flex flex-col bg-slate-50/50 min-w-0 border-r border-slate-200">
+                 {activeFormula ? (
+                     <>
+                        <div className="p-6 bg-white border-b border-slate-200 shadow-sm z-10">
+                            <div className="flex justify-between items-start mb-4">
+                                <input 
+                                    value={activeFormula.targetName} 
+                                    onChange={(e) => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, targetName: e.target.value} : f))}
+                                    className="text-xl font-bold text-slate-800 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-indigo-500 outline-none w-full"
+                                    placeholder="Metric Name..."
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={() => setIsTemplateLibraryOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200"><BookOpen size={14}/> Templates</button>
+                                    <button onClick={handleExplainFormula} disabled={isAnalyzing} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100"><Bot size={14}/> Explain</button>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <textarea
+                                    ref={editorRef}
+                                    value={activeFormula.expression}
+                                    onChange={handleFormulaChange}
+                                    className="w-full p-5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none min-h-[120px]"
+                                    placeholder="Enter formula... (Double-click fields to insert)"
+                                />
+                                <div className="absolute bottom-3 right-3">
+                                     {(() => {
+                                         const info = getGranularityInfo(computedFormulas.find(f => f.id === editingId) || activeFormula);
+                                         return (
+                                            <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${info.bg} ${info.color}`}>
+                                                {React.createElement(info.icon, { size: 12 })}
+                                                {info.label}
+                                            </div>
+                                         );
+                                     })()}
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div className="flex-1 overflow-hidden flex flex-col p-6">
+                            {(() => {
+                                const baseTable = inputs.find(i => i.id === selectedSourceId) || inputs[0];
+                                const computedActive = computedFormulas.find(f => f.id === editingId) || activeFormula;
+                                const isArrayResult = Array.isArray(computedActive.result);
+                                
+                                // SMART VIEW LOGIC:
+                                // If the dimension is inferred as NOT 'Row' (e.g. 'Employee'), show the Aggregated View by default.
+                                const showAggregate = previewModeOverride === 'aggregate' || (previewModeOverride === null && computedActive.outputDimension && computedActive.outputDimension !== 'Row');
+                                const aggKey = computedActive.outputDimension && computedActive.outputDimension !== 'Row' ? computedActive.outputDimension : 'Key';
+                                
+                                // Generate View Data
+                                let viewRows = [];
+                                if (showAggregate) {
+                                    // Deduplicate / Group by the output dimension
+                                    const uniqueMap = new Map();
+                                    baseTable.rows?.forEach((row, idx) => {
+                                        const key = row[aggKey] || 'Unclassified';
+                                        if (!uniqueMap.has(key)) {
+                                            uniqueMap.set(key, { 
+                                                key, 
+                                                count: 1,
+                                                value: isArrayResult ? computedActive.result[idx] : computedActive.result 
+                                            });
+                                        } else {
+                                            const e = uniqueMap.get(key);
+                                            e.count++;
+                                        }
+                                    });
+                                    viewRows = Array.from(uniqueMap.values());
+                                } else {
+                                    // Show Raw Detail
+                                    viewRows = computedActive.processes?.map((p, i) => ({
+                                        key: i + 1,
+                                        process: p,
+                                        value: isArrayResult ? computedActive.result[i] : computedActive.result
+                                    })) || [];
+                                }
 
-  const renderDataPreviewModal = () => {
-      if (!previewTableId) return null;
-      const table = inputs.find(i => i.id === previewTableId);
-      if (!table) return null;
+                                return (
+                                <>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                        <Eye size={16} className="text-slate-400"/>
+                                        <span>Preview: </span>
+                                        <span className="text-indigo-600 flex items-center gap-2">
+                                            {showAggregate ? `Aggregated by ${aggKey}` : 'Full Detail'}
+                                            <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[10px]">{viewRows.length} items</span>
+                                        </span>
+                                    </h3>
+                                    
+                                    <div className="flex bg-white border border-slate-200 p-1 rounded-lg">
+                                        <button 
+                                            onClick={() => setPreviewModeOverride('detail')}
+                                            className={`px-3 py-1 rounded text-[10px] font-bold ${previewModeOverride === 'detail' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500'}`}
+                                        >
+                                            <LayoutGrid size={12} className="inline mr-1"/> Raw
+                                        </button>
+                                        <button 
+                                            onClick={() => setPreviewModeOverride(null)}
+                                            className={`px-3 py-1 rounded text-[10px] font-bold ${previewModeOverride === null ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500'}`}
+                                        >
+                                            Auto
+                                        </button>
+                                    </div>
+                                </div>
+        
+                                <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                    <div className="overflow-auto p-0 bg-white">
+                                        <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-50 border-b border-slate-100 sticky top-0">
+                                            <tr>
+                                                <th className="px-4 py-2 text-slate-400 font-medium">{showAggregate ? aggKey : 'Row'}</th>
+                                                {showAggregate && <th className="px-4 py-2 text-slate-400 font-medium text-center">Count</th>}
+                                                {!showAggregate && <th className="px-4 py-2 text-slate-400 font-medium w-full">Trace</th>}
+                                                <th className="px-4 py-2 text-slate-400 font-medium text-right">Result</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                            {viewRows.slice(0, 100).map((row: any, i: number) => (
+                                                <tr key={i}>
+                                                    <td className="px-4 py-3 font-bold text-slate-700">{row.key}</td>
+                                                    {showAggregate && (
+                                                        <td className="px-4 py-3 text-center text-slate-400">{row.count}</td>
+                                                    )}
+                                                    {!showAggregate && (
+                                                        <td className="px-4 py-3 text-slate-600 font-mono" dangerouslySetInnerHTML={{__html: row.process}}></td>
+                                                    )}
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-indigo-600">
+                                                        {formatValue(row.value, computedActive.format)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                </>
+                                );
+                            })()}
+                        </div>
+                     </>
+                 ) : (
+                    <div className="flex-1 flex items-center justify-center text-slate-300 flex-col gap-4">
+                       <Calculator size={48} />
+                       <span className="font-bold text-sm">Select a step to edit</span>
+                    </div>
+                 )}
+            </div>
 
-      return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-12">
-              <div className="bg-white rounded-2xl shadow-2xl w-full h-full max-w-5xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                      <div className="flex items-center gap-3">
-                          <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-                              <TableProperties size={20} />
+            {/* === RIGHT COLUMN: Steps === */}
+            <div className="w-[300px] flex flex-col bg-white shrink-0">
+                 <div className="p-4 border-b border-slate-200 bg-white">
+                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Logic Steps</h2>
+                 </div>
+                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+                    {formulas.map((step, idx) => (
+                       <div 
+                          key={step.id}
+                          onClick={() => { setEditingId(step.id); setPreviewModeOverride(null); }}
+                          className={`p-4 rounded-xl border cursor-pointer transition-all relative group ${editingId === step.id ? 'bg-white border-indigo-500 shadow-md ring-1 ring-indigo-50' : 'bg-white border-slate-200 hover:border-indigo-300'}`}
+                       >
+                          <div className="flex justify-between items-center mb-2">
+                             <span className={`text-[10px] font-black uppercase tracking-wider ${editingId === step.id ? 'text-indigo-500' : 'text-slate-400'}`}>STEP {idx + 1}</span>
+                             <button onClick={(e) => deleteStep(step.id, e)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button>
                           </div>
-                          <div>
-                              <h3 className="text-sm font-bold text-slate-800">{table.name}</h3>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{table.rows?.length} Records • {table.fields?.length} Fields</p>
-                          </div>
-                      </div>
-                      <button onClick={() => setPreviewTableId(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all">
-                          <X size={20} />
-                      </button>
-                  </div>
-                  <div className="flex-1 overflow-auto p-6 bg-slate-50/30">
-                      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                          <table className="w-full text-left border-collapse text-xs">
-                              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
-                                  <tr>
-                                      <th className="px-4 py-3 font-bold text-slate-400 w-16 text-center bg-slate-50">#</th>
-                                      {table.fields?.map(f => (
-                                          <th key={f} className="px-6 py-3 font-bold text-slate-600 whitespace-nowrap bg-slate-50">{f}</th>
-                                      ))}
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-50">
-                                  {table.rows?.map((row, idx) => (
-                                      <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
-                                          <td className="px-4 py-3 text-center font-mono text-slate-300 text-[10px]">{idx + 1}</td>
-                                          {table.fields?.map(f => (
-                                              <td key={f} className="px-6 py-3 text-slate-700 whitespace-nowrap max-w-[200px] truncate" title={String(row[f])}>{row[f]}</td>
-                                          ))}
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      );
+                          <div className="font-bold text-slate-800 text-sm mb-1">{step.targetName}</div>
+                          <div className="text-xs text-slate-500 truncate font-mono bg-slate-50 p-1.5 rounded border border-slate-100">{step.expression || 'Empty'}</div>
+                          
+                           {/* Show inferred dimension badge in the list */}
+                           {computedFormulas.find(f => f.id === step.id)?.outputDimension && computedFormulas.find(f => f.id === step.id)?.outputDimension !== 'Row' && (
+                               <div className="mt-2 flex items-center gap-1 text-[9px] text-purple-600 font-bold uppercase tracking-wider">
+                                   <Users size={10} /> By {computedFormulas.find(f => f.id === step.id)?.outputDimension}
+                               </div>
+                           )}
+
+                          {editingId === step.id && (
+                              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-500 rounded-r"></div>
+                          )}
+                       </div>
+                    ))}
+                    <button 
+                       onClick={() => {
+                          const newId = Date.now().toString();
+                          setFormulas(prev => [...prev, {
+                             id: newId, targetName: 'New Metric', expression: '', latex: '', result: [], dependencies: []
+                          }]);
+                          setEditingId(newId);
+                       }}
+                       className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-400 text-xs font-bold hover:bg-white hover:border-indigo-400 hover:text-indigo-500 flex items-center justify-center gap-2"
+                    >
+                       <Plus size={16} /> Add Step
+                    </button>
+                 </div>
+            </div>
+        </div>
+     );
   };
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
-      <aside className="w-[72px] bg-[#0F172A] flex flex-col items-center py-8 gap-8 shrink-0 z-30 shadow-2xl">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/30"><Cpu size={20} /></div>
-        <nav className="flex flex-col gap-6 w-full px-2">
-          {[
-             { id: ViewState.DATA_SOURCES, icon: Database, label: '数据' },
-             { id: ViewState.LOGIC_STUDIO, icon: Settings2, label: '设计' },
-             { id: ViewState.LINEAGE, icon: GitGraph, label: '血缘' },
-             { id: ViewState.REPORTS, icon: BarChart3, label: '分析' }
-          ].map((item) => (
-            <button key={item.id} onClick={() => setActiveView(item.id)} className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all w-full ${activeView === item.id ? 'bg-white/10 text-indigo-400 shadow-inner' : 'text-slate-400 hover:text-slate-200'}`}>
-              <item.icon size={20} />
-              <span className="text-[9px] font-bold mt-1.5">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {activeView === ViewState.LINEAGE ? renderLineageView() : 
-       activeView === ViewState.REPORTS ? renderReportsView() : 
-       activeView === ViewState.DATA_SOURCES ? renderDataSourcesView() : (
-      <main className="flex-1 flex flex-col overflow-hidden">
-        
-        <div className="flex-1 flex overflow-hidden">
-          {/* Data Sidebar */}
-          <div className="w-72 bg-white border-r border-slate-200 flex flex-col overflow-hidden shrink-0 shadow-sm z-10">
-             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-3 shrink-0">
-                    <div className="flex items-center gap-2">
-                        <Database size={12} className="text-slate-400" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex-1">数据源面板</span>
-                    </div>
-                    {/* Data Source Search */}
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-                        <input 
-                            type="text" 
-                            placeholder="搜表或字段..." 
-                            value={dataSourceSearch} 
-                            onChange={(e) => setDataSourceSearch(e.target.value)} 
-                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-md outline-none focus:border-indigo-400 transition-colors" 
-                        />
-                    </div>
-                </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                    {/* Filtered Inputs with Drag and Drop */}
-                    {filteredInputs.map((input, index) => (
-                      <div 
-                        key={input.id} 
-                        className={`border-b border-slate-50 transition-all ${draggedSourceIdx === index ? 'opacity-30' : 'opacity-100'}`}
-                        draggable={!dataSourceSearch} // Disable dragging when searching to avoid index mismatch
-                        onDragStart={(e) => handleSourceDragStart(e, index)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => handleSourceDrop(e, index)}
-                      >
-                        <div className="px-3 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors group">
-                             {/* Drag Handle */}
-                             {!dataSourceSearch && (
-                                <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
-                                    <GripVertical size={12} />
-                                </div>
-                             )}
-                            <div className="flex-1 flex items-center gap-2 cursor-pointer overflow-hidden" onClick={() => toggleTableExpansion(input.id)}>
-                                {expandedTables.has(input.id) ? <ChevronDown size={14} className="text-slate-300 shrink-0" /> : <ChevronRight size={14} className="text-slate-300 shrink-0" />}
-                                <TableProperties size={12} className="text-indigo-400 shrink-0" />
-                                <span className={`text-[10px] font-bold uppercase tracking-wider text-slate-600 truncate ${input.name.toLowerCase().includes(dataSourceSearch.toLowerCase()) && dataSourceSearch ? 'text-indigo-600 bg-indigo-50 px-1 rounded' : ''}`}>{input.name}</span>
-                            </div>
-                            {/* Preview Eye Icon */}
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); setPreviewTableId(input.id); }}
-                                className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                                title="预览数据"
-                            >
-                                <Eye size={12} />
-                            </button>
-                        </div>
-                        {expandedTables.has(input.id) && (
-                           <div className="px-2 pb-2 space-y-1 ml-4 border-l-2 border-slate-100 pl-2">
-                             {input.fields?.map(f => (
-                                 <div key={f} draggable onDragStart={e => handleDragStart(e, f)} onClick={() => insertTextAtCursor(f)} className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-transparent hover:border-indigo-100 hover:bg-indigo-50/50 cursor-grab active:cursor-grabbing group">
-                                    <div className="w-4 h-4 flex items-center justify-center rounded bg-blue-100 text-blue-600 text-[9px] font-bold shrink-0">#</div>
-                                    <span className={`text-xs font-medium text-slate-600 flex-1 truncate ${f.toLowerCase().includes(dataSourceSearch.toLowerCase()) && dataSourceSearch ? 'text-indigo-600 bg-indigo-50' : ''}`}>{f}</span>
-                                    <GripVertical size={10} className="text-slate-200 opacity-0 group-hover:opacity-100" />
-                                 </div>
-                             ))}
-                           </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Calculated Metrics Section */}
-                    <div className="border-b border-slate-50 mt-4">
-                        <div className="px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors">
-                           <ChevronDown size={14} className="text-slate-300" />
-                           <Sigma size={12} className="text-purple-400" />
-                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex-1">已定义的计算指标</span>
-                        </div>
-                        <div className="px-2 pb-2 space-y-1">
-                           {computedFormulas.filter((f: any) => f.id !== editingId).map((f: any) => (
-                              <div key={f.id} draggable onDragStart={e => handleDragStart(e, f.targetName)} onClick={() => insertTextAtCursor(f.targetName)} className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-purple-50/50 border border-purple-100/50 hover:border-purple-300 cursor-grab transition-all group">
-                                 <div className="w-5 h-5 flex items-center justify-center rounded bg-purple-100 text-purple-600 text-[10px] font-bold">ƒ</div>
-                                 <div className="flex flex-col gap-0 overflow-hidden flex-1">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-700 truncate">{f.targetName}</span>
-                                        {/* Format Icon in List */}
-                                        {f.format === 'currency' && <CircleDollarSign size={8} className="text-green-500" />}
-                                        {f.format === 'percent' && <Percent size={8} className="text-blue-500" />}
-                                    </div>
-                                    <div className="flex items-center gap-1 opacity-60">
-                                       <Link2 size={8} />
-                                       <span className="text-[8px] text-slate-400 font-bold truncate">
-                                          {f.dataSource ? `${f.dataSource}[${f.expression.match(/\((.*?)\)/)?.[1] || '*'}]` : '跨表联动'}
-                                       </span>
-                                    </div>
-                                 </div>
-                                 <GripVertical size={12} className="text-purple-200 opacity-0 group-hover:opacity-100" />
-                              </div>
-                           ))}
-                        </div>
-                    </div>
-                </div>
-             </div>
-             <div className="h-px bg-slate-200 w-full shrink-0"></div>
-             <div className="h-[40%] flex flex-col bg-slate-50/30 shrink-0">
-                 <div className="px-4 py-3 border-b border-slate-100 bg-white flex items-center gap-2 shrink-0"><FunctionSquare size={12} className="text-indigo-500" /><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex-1">函数库</span></div>
-                 <div className="px-3 py-2 border-b border-slate-100 bg-white">
-                     <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} /><input type="text" placeholder="搜索公式..." value={functionSearch} onChange={(e) => setFunctionSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md outline-none" /></div>
-                 </div>
-                 <div className="flex-1 overflow-y-auto p-2 no-scrollbar">
-                    {BUSINESS_FUNCTIONS.filter(fn => fn.name.toLowerCase().includes(functionSearch.toLowerCase())).map(fn => (
-                       <div key={fn.name} draggable onDragStart={e => handleDragStart(e, fn.name)} onClick={() => insertTextAtCursor(`${fn.name}()`)} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); setTooltipPos({ top: rect.top, left: rect.right + 12 }); setHoveredFunc(fn); }} onMouseLeave={() => setHoveredFunc(null)} className="px-3 py-2 bg-white border border-slate-200/60 rounded-md hover:border-indigo-500 cursor-pointer flex items-center justify-between mb-1">
-                          <span className="text-xs font-bold text-indigo-600 font-mono">{fn.name}</span>
-                       </div>
-                    ))}
-                 </div>
-             </div>
-          </div>
-
-          <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar bg-[#F8FAFC] p-6">
-               <div className="mb-6 flex-shrink-0">
-                  <div className={`relative w-full min-h-[340px] bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col transition-all ${isDragOverEditor ? 'ring-2 ring-indigo-500 scale-[1.01]' : ''}`} onDragOver={(e) => { e.preventDefault(); setIsDragOverEditor(true); }} onDragLeave={() => setIsDragOverEditor(false)} onDrop={(e) => { e.preventDefault(); setIsDragOverEditor(false); const t = e.dataTransfer.getData('text/plain'); if(t) insertTextAtCursor(t); }}>
-                     {/* Reformatted Card Header */}
-                     <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/30 rounded-t-2xl flex flex-col gap-5">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><Calculator size={14} /> 逻辑定义 Studio</span>
-                            <button onClick={() => setIsTemplateLibraryOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm"><BookOpen size={12} /> 引用模板</button>
-                        </div>
-                        
-                        <div className="flex items-end gap-6">
-                             {/* Name Input */}
-                             <div className="flex-1">
-                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><PenLine size={10} /> 指标名称</label>
-                                 <input type="text" value={activeFormula?.targetName || ''} onChange={(e) => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, targetName: e.target.value} : f))} className="w-full text-lg font-bold text-slate-800 bg-transparent border-b border-slate-200 focus:border-indigo-500 focus:ring-0 p-0 pb-1 placeholder:text-slate-300 transition-colors" placeholder="输入指标名称" />
-                             </div>
-                             
-                             {/* Format Selector */}
-                             <div>
-                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">数据格式</label>
-                                 <div className="flex items-center gap-1 bg-slate-200/50 p-1 rounded-lg">
-                                     <button 
-                                        onClick={() => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, format: 'number'} : f))}
-                                        className={`p-1.5 rounded-md transition-all ${(!activeFormula?.format || activeFormula.format === 'number') ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}
-                                        title="数值"
-                                     >
-                                        <Hash size={14} />
-                                     </button>
-                                     <button 
-                                        onClick={() => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, format: 'currency'} : f))}
-                                        className={`p-1.5 rounded-md transition-all ${activeFormula?.format === 'currency' ? 'bg-white shadow-sm text-green-600 ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}
-                                        title="金额"
-                                     >
-                                        <CircleDollarSign size={14} />
-                                     </button>
-                                     <button 
-                                        onClick={() => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, format: 'percent'} : f))}
-                                        className={`p-1.5 rounded-md transition-all ${activeFormula?.format === 'percent' ? 'bg-white shadow-sm text-blue-600 ring-1 ring-black/5' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}
-                                        title="百分比"
-                                     >
-                                        <Percent size={14} />
-                                     </button>
-                                 </div>
-                             </div>
-                        </div>
-
-                        {/* Context Bar moved inside */}
-                        <div className="flex items-center gap-2 text-sm text-slate-600 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                           <Layers size={14} className="text-indigo-500 mr-1"/>
-                           <span className="font-semibold text-slate-400 text-[10px] uppercase tracking-wider">聚合上下文:</span>
-                           <span className="text-xs font-medium">基于</span>
-                           <div className="relative inline-block" ref={sourceMenuRef}>
-                             <button onClick={() => setIsSourceMenuOpen(!isSourceMenuOpen)} className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-md font-bold text-slate-800 text-xs flex items-center gap-2 hover:border-indigo-300 transition-colors">{activeFormula?.dataSource || '请选择数据源'} <ChevronDown size={10} /></button>
-                             {isSourceMenuOpen && (
-                               <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-1">
-                                 {inputs.filter(i => i.type === 'table').map(t => (
-                                   <button key={t.id} onClick={() => { setFormulas(prev => prev.map(f => f.id === editingId ? {...f, dataSource: t.name} : f)); setIsSourceMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 rounded-lg">{t.name}</button>
-                                 ))}
-                               </div>
-                             )}
-                           </div>
-                           <span className="text-xs font-medium">按维度</span>
-                           <div className="relative inline-block" ref={dimensionMenuRef}>
-                             <button onClick={() => setIsDimensionMenuOpen(!isDimensionMenuOpen)} className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-md font-bold text-slate-800 text-xs flex items-center gap-2 hover:border-indigo-300 transition-colors">{activeFormula?.groupByField || '请选择维度'} <ChevronDown size={10} /></button>
-                             {isDimensionMenuOpen && (
-                               <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-1">
-                                 {activeFormula?.dataSource ? inputs.find(i => i.name === activeFormula.dataSource)?.fields?.map(field => (
-                                   <button key={field} onClick={() => { setFormulas(prev => prev.map(f => f.id === editingId ? {...f, groupByField: field} : f)); setIsDimensionMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 rounded-lg">{field}</button>
-                                 )) : <div className="px-3 py-2 text-xs text-slate-400">请先选择数据源</div>}
-                               </div>
-                             )}
-                           </div>
-                           <span className="text-xs font-medium">计算</span>
-                        </div>
-                     </div>
-
-                     <div className="flex-1 flex flex-col p-8 items-center justify-center min-h-[200px]">
-                        <textarea ref={editorRef} value={activeFormula?.expression || ''} onChange={(e) => setFormulas(prev => prev.map(f => f.id === editingId ? {...f, expression: e.target.value} : f))} className="w-full text-2xl font-mono text-slate-700 text-center bg-transparent border-none focus:ring-0 resize-none placeholder:text-slate-200 leading-relaxed" placeholder="拖入字段定义计算规则" />
-                        <div className="w-full flex items-center gap-4 my-6"><div className="h-px bg-slate-100 flex-1"></div><span className="text-[9px] text-slate-300 font-black uppercase tracking-widest">Mathematical Formula</span><div className="h-px bg-slate-100 flex-1"></div></div>
-                        <FormulaRenderer latex={activeFormula?.latex || ''} scale={1.2} />
-
-                        {/* New Analysis Section */}
-                        <div className="w-full mt-6">
-                            <div className="flex items-center justify-between mb-2">
-                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logic Analysis</h4>
-                               <button onClick={handleExplainFormula} disabled={isAnalyzing} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isAnalyzing ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
-                                  {isAnalyzing ? 'Analyzing...' : <><Bot size={12}/> AI Explanation</>}
-                               </button>
-                            </div>
-                            {(activeFormula?.purpose || activeFormula?.expectedOutput) && (
-                                <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 text-xs space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    {activeFormula.purpose && (
-                                        <div className="flex gap-2">
-                                            <span className="font-bold text-indigo-900 min-w-[60px]">Purpose:</span>
-                                            <span className="text-slate-700">{activeFormula.purpose}</span>
-                                        </div>
-                                    )}
-                                    {activeFormula.expectedOutput && (
-                                        <div className="flex gap-2">
-                                             <span className="font-bold text-indigo-900 min-w-[60px]">Output:</span>
-                                             <span className="text-slate-700">{activeFormula.expectedOutput}</span>
-                                        </div>
-                                    )}
-                                    {activeFormula.explanation && (
-                                        <div className="mt-2 pt-2 border-t border-indigo-100 text-slate-600 leading-relaxed">
-                                            {activeFormula.explanation}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                     </div>
-                  </div>
-               </div>
-               <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden min-h-[400px]">
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/30">
-                     <div className="flex gap-2">
-                        <button onClick={() => setPreviewTab('result')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${previewTab === 'result' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>核验结果</button>
-                        <button onClick={() => setPreviewTab('source')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${previewTab === 'source' ? 'bg-white border border-slate-200 text-slate-600 shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>溯源数据</button>
-                     </div>
-                  </div>
-                  <div className="flex-1 overflow-auto p-6 bg-slate-50/20">{previewTab === 'result' ? renderCalculationResult() : renderSourceTablePreview()}</div>
-               </div>
-          </div>
-
-          <div className="w-72 bg-white border-l border-slate-200 flex flex-col overflow-hidden shrink-0 shadow-sm">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">原子计算步骤</h3>
-               <button onClick={() => { const id = Date.now().toString(); setFormulas([...formulas, { id, targetName: '新计算步骤', expression: '', latex: '', result: 0, dependencies: [], format: 'number' }]); setEditingId(id); }} className="w-6 h-6 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-md transition-all"><Plus size={14} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-               {computedFormulas.map((f: any, i) => {
-                  const granularity = getGranularityInfo(f);
-                  return (
-                  <div key={f.id} onClick={() => setEditingId(f.id)} className={`p-4 rounded-xl border transition-all cursor-pointer relative ${editingId === f.id ? 'bg-white border-indigo-500 shadow-lg ring-2 ring-indigo-50' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
-                     <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest block">Step {i+1}</span>
-                        {/* Granularity Badge */}
-                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${granularity.bg} border border-transparent`}>
-                            <granularity.icon size={8} className={granularity.color} />
-                            <span className={`text-[8px] font-bold ${granularity.color} uppercase tracking-tighter`}>{granularity.type === 'row' ? 'Row' : 'Agg'}</span>
-                        </div>
-                     </div>
-                     <h4 className={`text-sm font-bold truncate ${editingId === f.id ? 'text-indigo-900' : 'text-slate-700'}`}>{f.targetName}</h4>
-                     <div className="mt-2 text-[10px] font-mono text-slate-500 bg-slate-50 p-2 rounded truncate border border-slate-100">{f.expression || '未配置逻辑'}</div>
-                  </div>
-               )})}
-            </div>
-            <div className="p-5 border-t border-slate-100 bg-slate-50">
-               <button className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
-                  <Sparkles size={14} /> 发布计算包
-               </button>
-            </div>
-          </div>
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-900">
+      <nav className="w-[70px] bg-indigo-900 flex flex-col items-center py-6 gap-6 shrink-0 z-50">
+        <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/50 mb-4">
+          <Sigma className="text-white" size={24} />
         </div>
-      </main>
-      )}
+        <div className="flex flex-col gap-4 w-full px-2">
+           {[
+             { id: ViewState.DATA_SOURCES, icon: Database, label: 'Data' },
+             { id: ViewState.LOGIC_STUDIO, icon: FunctionSquare, label: 'Logic' },
+             { id: ViewState.REPORTS, icon: BarChart3, label: 'Report' },
+           ].map(item => (
+             <button 
+               key={item.id}
+               onClick={() => setActiveView(item.id)}
+               className={`group flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeView === item.id ? 'bg-white/10 text-white' : 'text-indigo-300 hover:text-white hover:bg-white/5'}`}
+             >
+               <item.icon size={20} className="transition-transform group-hover:scale-110" />
+               <span className="text-[9px] font-bold tracking-wide">{item.label}</span>
+             </button>
+           ))}
+        </div>
+        <div className="mt-auto">
+           <button className="p-3 text-indigo-300 hover:text-white transition-colors">
+              <Settings2 size={20} />
+           </button>
+        </div>
+      </nav>
 
-      {/* Render Template Library Modal */}
+      <main className="flex-1 overflow-hidden relative shadow-2xl rounded-l-[2rem] bg-white my-2 mr-2 border border-slate-200 clip-path-main">
+         {activeView === ViewState.DATA_SOURCES && (
+             <div className="flex items-center justify-center h-full text-slate-400">Select Logic Studio to manage data.</div>
+         )}
+         {activeView === ViewState.LOGIC_STUDIO && renderCalculationResult()}
+         {activeView === ViewState.REPORTS && renderReportsView()}
+      </main>
+
+      {renderLookupModal()}
+
       {isTemplateLibraryOpen && (
         <TemplateLibrary 
-          onSelect={(template) => {
-             const newId = Date.now().toString();
-             setFormulas(prev => [...prev, {
-                id: newId,
-                targetName: template.name,
-                expression: template.expression,
-                latex: '',
-                result: 0,
-                dependencies: [],
-                format: 'number',
-                explanation: template.description,
-                dataSource: '',
-                groupByField: ''
-             }]);
-             setEditingId(newId);
-             setIsTemplateLibraryOpen(false);
-          }} 
-          onClose={() => setIsTemplateLibraryOpen(false)} 
+           onClose={() => setIsTemplateLibraryOpen(false)}
+           onSelect={(template) => {
+              if (editingId) {
+                  setFormulas(prev => prev.map(f => f.id === editingId ? { ...f, targetName: template.name, expression: template.expression } : f));
+                  setIsTemplateLibraryOpen(false);
+              }
+           }}
         />
       )}
-
-      {/* Render Data Preview Modal */}
-      {renderDataPreviewModal()}
-
     </div>
   );
 };
