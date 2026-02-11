@@ -33,7 +33,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Table2,
-  MousePointerClick
+  MousePointerClick,
+  Hash,
+  DollarSign,
+  Percent,
+  Variable
 } from 'lucide-react';
 
 // --- MOCK DATA (INSURANCE SCENARIO) ---
@@ -102,11 +106,14 @@ const App: React.FC = () => {
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set(['1', '2', '3']));
   
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(INITIAL_INPUTS[1].id);
-  // Add state to track selected field
-  const [selectedField, setSelectedField] = useState<string | null>(null);
+  // Add state to track selected field (raw or computed)
+  const [selectedField, setSelectedField] = useState<{id: string, type: 'raw' | 'computed'} | null>(null);
 
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Table Preview Modal
+  const [previewTableId, setPreviewTableId] = useState<string | null>(null);
 
   // Lookup Modal State
   const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
@@ -600,6 +607,54 @@ const App: React.FC = () => {
     );
   };
 
+  const renderTablePreviewModal = () => {
+    if (!previewTableId) return null;
+    const table = inputs.find(i => i.id === previewTableId);
+    if (!table) return null;
+
+    const previewRows = table.rows?.slice(0, 5) || [];
+    const previewCols = table.fields || [];
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[110] flex items-center justify-center animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-[600px] flex flex-col overflow-hidden max-h-[80vh]">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <div className="flex items-center gap-2">
+                        <Table2 size={16} className="text-indigo-600"/>
+                        <span className="font-bold text-slate-800">{table.name} Preview</span>
+                    </div>
+                    <button onClick={() => setPreviewTableId(null)} className="text-slate-400 hover:text-slate-600">
+                        <X size={18} />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-auto p-0">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                            <tr>
+                                {previewCols.map(col => (
+                                    <th key={col} className="px-4 py-3 font-medium text-slate-500">{col}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {previewRows.map((row: any, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                    {previewCols.map(col => (
+                                        <td key={col} className="px-4 py-3 text-slate-700">{row[col]}</td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-2 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 text-center">
+                    Previewing first 5 rows of {table.rows?.length} records
+                </div>
+            </div>
+        </div>
+    );
+  };
+
   const renderLookupModal = () => {
     if (!isLookupModalOpen) return null;
     
@@ -761,7 +816,7 @@ const App: React.FC = () => {
                         <Database size={16} className="text-indigo-600"/> Data Assets
                     </h2>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2">
+                <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-slate-200">
                     <div className="mb-4 px-2">
                          <button 
                           onClick={() => fileInputRef.current?.click()}
@@ -773,17 +828,24 @@ const App: React.FC = () => {
                     </div>
                     {inputs.map((input) => (
                           <div key={input.id} className={`mb-2 rounded-lg border transition-all bg-white ${selectedSourceId === input.id ? 'border-indigo-400 shadow-sm ring-1 ring-indigo-50' : 'border-slate-200 hover:border-indigo-200'}`}>
-                            <div className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50" onClick={() => { setSelectedSourceId(input.id); toggleTableExpansion(input.id); }}>
+                            <div className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50 group" onClick={() => { setSelectedSourceId(input.id); toggleTableExpansion(input.id); }}>
                                 {expandedTables.has(input.id) ? <ChevronDown size={14} className="text-slate-300" /> : <ChevronRight size={14} className="text-slate-300" />}
                                 <div className="flex-1 overflow-hidden">
                                     <span className="text-xs font-bold text-slate-700 truncate block">{input.name}</span>
                                     <span className="text-[9px] text-slate-400 font-medium">{input.rows?.length} rows</span>
                                 </div>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setPreviewTableId(input.id); }}
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-indigo-600 transition-all"
+                                    title="Preview Table Data"
+                                >
+                                    <Eye size={12} />
+                                </button>
                             </div>
                             {expandedTables.has(input.id) && (
                                <div className="px-2 pb-2 space-y-1 ml-4 border-l-2 border-slate-100 pl-2">
                                  {input.fields?.map(f => {
-                                     const isSelected = selectedField === f && selectedSourceId === input.id;
+                                     const isSelected = selectedField?.id === f && selectedField?.type === 'raw' && selectedSourceId === input.id;
                                      return (
                                      <div 
                                         key={f} 
@@ -792,7 +854,7 @@ const App: React.FC = () => {
                                         onClick={(e) => { 
                                             e.stopPropagation();
                                             setSelectedSourceId(input.id);
-                                            setSelectedField(f);
+                                            setSelectedField({id: f, type: 'raw'});
                                         }}
                                         onDoubleClick={() => insertTextAtCursor(f)}
                                         className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${isSelected ? 'bg-indigo-100 ring-1 ring-indigo-200' : 'hover:bg-indigo-50'}`}
@@ -807,7 +869,46 @@ const App: React.FC = () => {
                           </div>
                     ))}
                 </div>
-                <div className="h-1/3 flex flex-col bg-white shrink-0 border-t border-slate-200">
+                
+                {/* Computed Metrics Section */}
+                <div className="h-1/4 flex flex-col bg-slate-50/50 shrink-0 border-t border-slate-200">
+                     <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Variable size={14}/> Computed Metrics</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-2">
+                        {formulas.map((f) => {
+                             const isSelected = selectedField?.id === f.targetName && selectedField?.type === 'computed';
+                             let TypeIcon = Hash;
+                             if (f.format === 'currency') TypeIcon = DollarSign;
+                             if (f.format === 'percent') TypeIcon = Percent;
+
+                             return (
+                                 <div 
+                                    key={f.id} 
+                                    draggable 
+                                    onDragStart={(e) => e.dataTransfer.setData('text/plain', f.targetName)} 
+                                    onClick={(e) => { 
+                                        e.stopPropagation();
+                                        setSelectedField({id: f.targetName, type: 'computed'});
+                                    }}
+                                    onDoubleClick={() => insertTextAtCursor(f.targetName)}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors mb-1 ${isSelected ? 'bg-indigo-100 ring-1 ring-indigo-200' : 'bg-white hover:bg-indigo-50 border border-slate-100'}`}
+                                 >
+                                    <div className={`w-4 h-4 flex items-center justify-center rounded text-[9px] font-bold ${isSelected ? 'bg-indigo-500 text-white' : 'bg-orange-100 text-orange-600'}`}>
+                                        <TypeIcon size={10} />
+                                    </div>
+                                    <span className={`text-xs font-medium flex-1 truncate ${isSelected ? 'text-indigo-900 font-bold' : 'text-slate-600'}`}>{f.targetName}</span>
+                                    {isSelected && <MousePointerClick size={12} className="text-indigo-400 animate-pulse"/>}
+                                 </div>
+                             );
+                        })}
+                        {formulas.length === 0 && (
+                            <div className="text-[10px] text-slate-400 text-center py-4">No metrics yet</div>
+                        )}
+                     </div>
+                </div>
+
+                <div className="h-1/4 flex flex-col bg-white shrink-0 border-t border-slate-200">
                      <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><FunctionSquare size={14}/> Functions</span>
                      </div>
@@ -1058,6 +1159,7 @@ const App: React.FC = () => {
       </main>
 
       {renderLookupModal()}
+      {renderTablePreviewModal()}
 
       {isTemplateLibraryOpen && (
         <TemplateLibrary 
